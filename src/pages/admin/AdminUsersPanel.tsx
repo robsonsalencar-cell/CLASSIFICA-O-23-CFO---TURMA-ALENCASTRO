@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+// Tenta o caminho padrao do Lovable/Vite
+import { supabase } from '@/integrations/supabase/client';
 
 interface Profile {
   id: string;
@@ -28,7 +29,7 @@ export const AdminUsersPanel = () => {
       .order('nome_completo', { ascending: true });
 
     if (!error && data) {
-      setProfiles(data);
+      setProfiles(data as Profile[]);
     }
     setLoading(false);
   };
