@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// Tenta o caminho padrao do Lovable/Vite
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../../lib/supabase';
 
 interface Profile {
   id: string;
