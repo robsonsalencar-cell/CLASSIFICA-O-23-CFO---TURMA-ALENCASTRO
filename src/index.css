@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Educational Dashboard Design System - 23° CFO Classification */
+
+@layer base {
+  :root {
+    /* Base colors - Deep Navy/Gold Theme inspired by brasão */
+    --background: 220 30% 7%;
+    --foreground: 45 100% 95%;
+
+    /* Card system - Navy with golden accents */
+    --card: 220 25% 11%;
+    --card-foreground: 45 100% 95%;
+    --card-header: 220 20% 14%;
+    --card-border: 43 70% 45%;
+
+    /* Navigation & UI */
+    --popover: 220 25% 11%;
+    --popover-foreground: 45 100% 95%;
+
+    /* Brand colors - Gold Theme */
+    --primary: 43 96% 56%;
+    --primary-foreground: 220 30% 7%;
+    --primary-hover: 45 100% 51%;
+
+    /* Success/Achievement colors - Golden green */
+    --success: 50 85% 50%;
+    --success-foreground: 220 30% 7%;
+    --success-light: 50 85% 25%;
+
+    /* Warning/Attention colors */
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 30% 7%;
+    --warning-light: 38 92% 25%;
+
+    /* Danger/Low performance - Crimson from brasão */
+    --danger: 0 70% 45%;
+    --danger-foreground: 45 100% 95%;
+    --danger-light: 0 70% 20%;
+
+    /* Neutral system with navy tint */
+    --secondary: 220 25% 18%;
+    --secondary-foreground: 45 100% 95%;
+
+    --muted: 220 20% 16%;
+    --muted-foreground: 45 50% 75%;
+
+    --accent: 43 85% 40%;
+    --accent-foreground: 220 30% 7%;
+
+    /* Chart colors - Golden palette */
+    --chart-1: 43 96% 56%;
+    --chart-2: 50 85% 50%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 220 60% 50%;
+    --chart-5: 0 70% 50%;
+
+    /* Gradients - Rich gold/navy effects */
+    --gradient-primary: linear-gradient(135deg, hsl(43 96% 56%), hsl(35 88% 48%), hsl(30 75% 40%));
+    --gradient-success: linear-gradient(135deg, hsl(50 85% 50%), hsl(45 80% 45%));
+    --gradient-card: linear-gradient(145deg, hsl(220 25% 11%), hsl(220 20% 14%));
+
+    /* Shadows - Golden glow */
+    --shadow-sm: 0 1px 2px hsl(43 96% 20% / 0.3);
+    --shadow-md: 0 4px 6px hsl(43 96% 30% / 0.4);
+    --shadow-lg: 0 10px 15px hsl(43 96% 40% / 0.5);
+    --shadow-card: 0 4px 6px hsl(220 50% 15% / 0.3), 0 0 20px hsl(43 96% 56% / 0.1);
+
+    /* Borders & inputs */
+    --border: 220 30% 25%;
+    --input: 220 25% 20%;
+    --ring: 43 96% 56%;
+
+    /* Border radius */
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 25% 9%;
+    --sidebar-foreground: 45 100% 95%;
+    --sidebar-primary: 43 96% 56%;
+    --sidebar-primary-foreground: 220 30% 7%;
+    --sidebar-accent: 220 25% 16%;
+    --sidebar-accent-foreground: 45 100% 95%;
+    --sidebar-border: 220 30% 25%;
+    --sidebar-ring: 43 96% 56%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

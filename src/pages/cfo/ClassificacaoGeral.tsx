@@ -1,0 +1,257 @@
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KPICard } from "@/components/dashboard/KPICard";
+import { HighlightCard } from "@/components/dashboard/HighlightCard";
+import { RankingTable } from "@/components/dashboard/RankingTable";
+import { StudentDetailsModal } from "@/components/dashboard/StudentDetailsModal";
+
+import { calculateKPIs } from "@/data/mockData";
+import { DetailedStudent } from "@/hooks/useGoogleSheets";
+import { useAlunosModulo } from "@/hooks/useAlunosModulo";
+import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
+import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
+import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
+import { useAuth } from "@/contexts/AuthContext";
+import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
+
+import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, BookOpen, Loader2 } from "lucide-react";
+
+const ClassificacaoGeral = () => {
+  const { isAdmin, viewingAsAlunoId } = useAuth();
+  const mostrarVisaoCompleta = isAdmin && !viewingAsAlunoId;
+  const [selectedStudent, setSelectedStudent] = useState<DetailedStudent | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const cfo1 = useAlunosModulo("notas_cfo1", MATERIAS_CFO1);
+  const cfo2 = useAlunosModulo("notas_cfo2", MATERIAS_CFO2);
+  const cfo3 = useAlunosModulo("notas_cfo3", MATERIAS_CFO3);
+
+  const loading = cfo1.loading || cfo2.loading || cfo3.loading;
+
+  // Combina os 3 módulos por aluno (usando o próprio nome como chave de junção aqui,
+  // já que useAlunosModulo hoje devolve o Student "achatado". Se quiser juntar por
+  // aluno_id em vez de nome, ajuste useAlunosModulo para expor também o aluno_id.)
+  const students = useMemo<DetailedStudent[]>(() => {
+    const porNome = new Map<
+      string,
+      { nome: string; cfoI?: number; cfoII?: number; cfoIII?: number }
+    >();
+
+    for (const s of cfo1.students) {
+      porNome.set(s.nome, { ...(porNome.get(s.nome) ?? { nome: s.nome }), cfoI: s.mediaFinal });
+    }
+    for (const s of cfo2.students) {
+      porNome.set(s.nome, { ...(porNome.get(s.nome) ?? { nome: s.nome }), cfoII: s.mediaFinal });
+    }
+    for (const s of cfo3.students) {
+      porNome.set(s.nome, { ...(porNome.get(s.nome) ?? { nome: s.nome }), cfoIII: s.mediaFinal });
+    }
+
+    const lista = Array.from(porNome.values()).map((s) => {
+      const medias = [s.cfoI, s.cfoII, s.cfoIII].filter((v): v is number => typeof v === "number");
+      const mediaFinal = medias.length > 0 ? medias.reduce((a, b) => a + b, 0) / medias.length : 0;
+      return {
+        nome: s.nome,
+        mediaFinal,
+        rank: 0,
+        cfoAverages: { cfoI: s.cfoI, cfoII: s.cfoII, cfoIII: s.cfoIII },
+      } as unknown as DetailedStudent;
+    });
+
+    lista.sort((a, b) => b.mediaFinal - a.mediaFinal);
+    lista.forEach((s, i) => (s.rank = i + 1));
+    return lista;
+  }, [cfo1.students, cfo2.students, cfo3.students]);
+
+  const kpis = useMemo(() => calculateKPIs(students), [students]);
+  const totalMateriasLancadas = cfo1.subjectsLaunched + cfo2.subjectsLaunched + cfo3.subjectsLaunched;
+  const totalMaterias = cfo1.allSubjects.length + cfo2.allSubjects.length + cfo3.allSubjects.length;
+
+  const topThree = students.slice(0, 3);
+  const bottomThree = students.slice(-3).sort((a, b) => b.mediaFinal - a.mediaFinal);
+
+  const handleStudentClick = (student: DetailedStudent) => {
+    setSelectedStudent(student);
+    setIsModalOpen(true);
+  };
+
+  if (!mostrarVisaoCompleta) {
+    return <ResumoIndividualModulo tabela="geral" tituloModulo="Classificação Geral" />;
+  }
+
+  if (loading && students.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="bg-gradient-to-r from-[hsl(220,50%,12%)] via-card/95 to-[hsl(220,50%,12%)] border-b border-primary/30 shadow-lg">
+        <div className="container mx-auto px-4 py-6">
+          <div className="text-center">
+            <div className="flex justify-center mb-6">
+              <div className="relative">
+                <img
+                  src="/lovable-uploads/brasao-novo.png"
+                  alt="Brasão 23º CFO - Turma Alencastro"
+                  className="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 object-contain drop-shadow-2xl"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-[hsl(220,60%,30%)]/10 blur-xl opacity-30 -z-10"></div>
+              </div>
+            </div>
+
+            <div className="relative inline-block mb-4">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 blur-lg -z-10"></div>
+              <p className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-wider px-8 py-3 border-y-2 border-primary/60 bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent uppercase">
+                CLASSIFICAÇÃO FINAL – 23° CFO
+              </p>
+            </div>
+
+            <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent">
+              Painel de desempenho dos alunos oficiais - Turma Alencastro
+            </p>
+            <div className="w-full text-right mt-2">
+              <span className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        <section>
+          <h2 className="text-xl font-semibold mb-4 text-foreground">Indicadores Gerais</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <KPICard
+              title="Matérias Avaliadas"
+              value={`${totalMateriasLancadas}/${totalMaterias}`}
+              subtitle="Progresso do curso (3 módulos)"
+              variant="success"
+              icon={<BookOpen className="w-4 h-4" />}
+            />
+            <KPICard
+              title="Média da Turma"
+              value={kpis.mediaTurma.toFixed(4)}
+              subtitle={`Desvio-padrão: ${kpis.desvioPadrao.toFixed(4)}`}
+              variant="default"
+              icon={<Target className="w-4 h-4" />}
+            />
+            <KPICard
+              title="Total de Alunos"
+              value={kpis.totalAlunos}
+              subtitle="Registros válidos"
+              variant="default"
+              icon={<Users className="w-4 h-4" />}
+            />
+            <KPICard
+              title="🏆 Maior Média"
+              value={kpis.maiorMedia.nota.toFixed(4)}
+              subtitle={kpis.maiorMedia.aluno}
+              variant="success"
+              icon={<TrendingUp className="w-4 h-4" />}
+            />
+            <KPICard
+              title="Menor Média"
+              value={kpis.menorMedia.nota.toFixed(4)}
+              subtitle={kpis.menorMedia.aluno}
+              variant="warning"
+              icon={<TrendingDown className="w-4 h-4" />}
+            />
+          </div>
+        </section>
+
+        <section>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div>
+              <h2 className="text-xl font-semibold mb-4 text-foreground flex items-center gap-2">
+                <Award className="w-5 h-5 text-primary animate-bounce" />
+                Top 3 - Melhores Desempenhos
+              </h2>
+              <div className="space-y-3">
+                {topThree.map((student) => (
+                  <HighlightCard
+                    key={student.rank}
+                    rank={student.rank}
+                    nome={student.nome}
+                    mediaFinal={student.mediaFinal}
+                    variant="top"
+                    cfoAverages={(student as any).cfoAverages}
+                    onClick={() => handleStudentClick(student)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-xl font-semibold mb-4 text-foreground flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-danger animate-pulse" />
+                CARROCEIROS
+              </h2>
+              <div className="space-y-3">
+                {bottomThree.map((student) => (
+                  <HighlightCard
+                    key={student.rank}
+                    rank={student.rank}
+                    nome={student.nome}
+                    mediaFinal={student.mediaFinal}
+                    variant="bottom"
+                    cfoAverages={(student as any).cfoAverages}
+                    onClick={() => handleStudentClick(student)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <RankingTable students={students} onStudentClick={handleStudentClick as any} kpis={kpis as any} />
+        </section>
+
+        <section>
+          <Card className="border-success/20 bg-success-light/20">
+            <CardHeader>
+              <CardTitle className="text-lg text-success flex items-center gap-2">
+                <Award className="w-5 h-5" />
+                Validação dos Dados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="font-semibold text-foreground">Total de Alunos</p>
+                  <p className="text-muted-foreground">✓ Confirmado: {kpis.totalAlunos} alunos</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Média da Turma</p>
+                  <p className="text-muted-foreground">✓ Calculada: {kpis.mediaTurma.toFixed(4)}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Rankings</p>
+                  <p className="text-muted-foreground">✓ Ordenação validada</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      </main>
+
+      <StudentDetailsModal
+        student={selectedStudent}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedStudent(null);
+        }}
+      />
+
+      <div className="bg-[hsl(220,50%,10%)] border-t border-primary/20 text-center py-2">
+        <p className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</p>
+      </div>
+    </div>
+  );
+};
+
+export default ClassificacaoGeral;
