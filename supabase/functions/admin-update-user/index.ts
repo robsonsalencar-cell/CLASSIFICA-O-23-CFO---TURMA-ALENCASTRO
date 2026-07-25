@@ -1,62 +1,112 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// Supabase Edge Function: admin-update-user
+// Permite ao admin editar nome, e-mail, CPF, perfil (role) e opcionalmente
+// redefinir a senha de um usuário já existente.
+// Só pode ser chamada por um usuário autenticado com role = 'admin'.
+//
+// Deploy:
+//   supabase functions deploy admin-update-user
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    const { userId, nome_completo, email, cpf, role, newPassword } = await req.json()
-
-    if (!userId) {
-      throw new Error('User ID é obrigatório.')
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Não autenticado." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // 1. Atualizar dados no Auth (E-mail e/ou Senha se fornecidos)
-    const updateAuthPayload: any = {}
-    if (email) updateAuthPayload.email = email
-    if (newPassword) updateAuthPayload.password = newPassword
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    if (Object.keys(updateAuthPayload).length > 0) {
-      const { error: authError } = await supabaseClient.auth.admin.updateUserById(
-        userId,
-        updateAuthPayload
-      )
-      if (authError) throw authError
+    const callerClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const {
+      data: { user: caller },
+    } = await callerClient.auth.getUser();
+
+    if (!caller) {
+      return new Response(JSON.stringify({ error: "Sessão inválida." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // 2. Atualizar tabela profiles
-    const { error: profileError } = await supabaseClient
-      .from('profiles')
-      .update({
-        nome_completo,
-        email,
-        cpf: cpf || null,
-        role,
-      })
-      .eq('id', userId)
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    if (profileError) throw profileError
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("role")
+      .eq("id", caller.id)
+      .single();
 
-    return new Response(
-      JSON.stringify({ message: 'Usuário atualizado com sucesso!' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-    )
+    if (callerProfile?.role !== "admin") {
+      return new Response(JSON.stringify({ error: "Apenas administradores podem editar usuários." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { user_id, nome_completo, email, cpf, role, nova_senha } = await req.json();
+
+    if (!user_id) {
+      return new Response(JSON.stringify({ error: "user_id é obrigatório." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (email || nova_senha) {
+      const payload: Record<string, unknown> = {};
+      if (email) payload.email = email;
+      if (nova_senha) payload.password = nova_senha;
+
+      const { error: authError } = await adminClient.auth.admin.updateUserById(user_id, payload);
+      if (authError) {
+        return new Response(JSON.stringify({ error: authError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (nome_completo) patch.nome_completo = nome_completo;
+    if (email) patch.email = email;
+    if (cpf !== undefined) patch.cpf = cpf || null;
+    if (role) patch.role = role;
+
+    if (Object.keys(patch).length > 0) {
+      const { error: profileError } = await adminClient.from("profiles").update(patch).eq("id", user_id);
+      if (profileError) {
+        return new Response(JSON.stringify({ error: profileError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
-})
+});
