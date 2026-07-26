@@ -9,6 +9,7 @@ export interface NotaRow {
   aluno_id: string;
   materia: string;
   vc: number | null;
+  vc_lista: number[] | null;
   vf: number | null;
   nota_final: number | null;
   updated_at: string;
@@ -37,8 +38,8 @@ export function useNotasModulo(tabela: TabelaModulo) {
       .from(tabela)
       .select(
         isAdmin
-          ? "id, aluno_id, materia, vc, vf, nota_final, updated_at, profiles!inner(nome_completo)"
-          : "id, aluno_id, materia, vc, vf, nota_final, updated_at"
+          ? "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at, profiles!inner(nome_completo)"
+          : "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at"
       );
 
     if (effectiveAlunoId) {
@@ -68,7 +69,7 @@ export function useNotasModulo(tabela: TabelaModulo) {
   async function salvarNota(params: {
     aluno_id: string;
     materia: string;
-    vc?: number | null;
+    vc_lista?: number[] | null;
     vf?: number | null;
     nota_final?: number | null;
   }) {

@@ -5,8 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserPlus, Users, Pencil, Save, X, KeyRound } from "lucide-react";
+import { Loader2, UserPlus, Users, Pencil, Save, X, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface EdicaoState {
@@ -33,6 +44,7 @@ export function AdminUsersPanel() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [edicao, setEdicao] = useState<EdicaoState | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   async function carregarPerfis() {
     setLoading(true);
@@ -123,6 +135,26 @@ export function AdminUsersPanel() {
 
     toast({ title: "Dados atualizados com sucesso" });
     cancelarEdicao();
+    carregarPerfis();
+  }
+
+  async function handleExcluirUsuario(userId: string) {
+    setExcluindoId(userId);
+    const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+      body: { user_id: userId },
+    });
+    setExcluindoId(null);
+
+    if (error || (data as any)?.error) {
+      toast({
+        title: "Erro ao excluir usuário",
+        description: (data as any)?.error ?? error?.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({ title: "Usuário excluído com sucesso" });
     carregarPerfis();
   }
 
@@ -283,6 +315,41 @@ export function AdminUsersPanel() {
                               <Button size="icon" variant="ghost" onClick={() => iniciarEdicao(p)} title="Editar">
                                 <Pencil className="w-4 h-4" />
                               </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    title="Excluir"
+                                    disabled={excluindoId === p.id}
+                                  >
+                                    {excluindoId === p.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4 text-destructive" />
+                                    )}
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Essa ação é permanente: a conta de login e todas as notas
+                                      lançadas para este aluno em todos os módulos (CFO I, II, III e
+                                      Classificação Geral) serão apagadas. Não é possível desfazer.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleExcluirUsuario(p.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Sim, excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </TableCell>
                           </>
                         )}

@@ -1,4 +1,32 @@
-// Mesma estrutura curricular do CFO I (confirmado no useGoogleSheets.ts original do CFO II).
-// Caso as matérias do CFO II sejam diferentes das do CFO I no futuro, edite este arquivo
-// livremente — ele é independente do materiasCfo1.ts.
-export { MATERIAS_CFO1 as MATERIAS_CFO2 } from "./materiasCfo1";
+// Lista oficial de disciplinas do CFO II, conforme Matriz Curricular do CFO (20 meses).
+// OBSERVAÇÃO: "Natação" saiu desta lista e passou para o CFO III, por instrução
+// explícita (a matriz original ainda mostra Natação aqui, mas na prática ela migrou).
+export const MATERIAS_CFO2: string[] = [
+  "Criminologia Aplicada a Segurança Pública",
+  "Sociologia do Crime e da Violência",
+  "Direito Penal Militar II",
+  "Direito Administrativo Aplicado a Seg. Publica.",
+  "Direito Processual Penal Militar II",
+  "Legislação Policial Militar II",
+  "Direito Administrativo Disciplinar Militar II",
+  "Legislação Penal Extravagante II",
+  "Educação Física Policial Militar II",
+  "Defesa Pessoal II",
+  "Gestão de Informação – Inteligência",
+  "Saúde Segurança aplicada ao Trabalho",
+  "Marketing Institucional",
+  "Metodologia Científica/Projeto de Pesquisa",
+  "Geoprocessamento e Análise Criminal",
+  "Emergência e Traumas",
+  "Cultura e Cotidiano Policial Militar II",
+  "Técnicas Gerais de Policiamento II",
+  "POP II",
+  "Criminalística",
+  "Defesa Territorial II",
+  "Policiamento Montado",
+  "Uso diferenciado da Força",
+  "Gestão de Pessoas",
+  "Termo Circunstanciado de Ocorrência",
+  "Sistemas Informatizados",
+  "Tiro Policial",
+];

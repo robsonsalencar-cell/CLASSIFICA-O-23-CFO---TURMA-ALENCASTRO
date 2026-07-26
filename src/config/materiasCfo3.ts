@@ -1,3 +1,30 @@
-// Mesma estrutura curricular do CFO I (confirmado no useGoogleSheets.ts original do CFO III).
-// Caso as matérias do CFO III sejam diferentes no futuro, edite este arquivo livremente.
-export { MATERIAS_CFO1 as MATERIAS_CFO3 } from "./materiasCfo1";
+// Lista oficial de disciplinas do CFO III, conforme Matriz Curricular do CFO (20 meses).
+// Inclui "Natação", que migrou do CFO II para o CFO III (por instrução explícita).
+export const MATERIAS_CFO3: string[] = [
+  "Licitação de Contrato e Aquisição",
+  "Direito Penal Militar III",
+  "Direito Processual Penal Militar III",
+  "Legislação Policial Militar III",
+  "Direito Administrativo Disciplinar Militar III",
+  "Gerenciamento de Crises e Eventos Críticos",
+  "Educação Física Policial Militar III",
+  "Controle e submissão",
+  "Artigo Científico",
+  "Seminário de Trabalho Científico-Workshop de Banca de Defesa do TCC",
+  "Cultura e Cotidiano Policial Militar III",
+  "EPP – Estagio de Patrulhamento Tático",
+  "Técnicas Gerais de Policiamento III",
+  "POP III",
+  "Segurança Física de Instalações e Dignitários",
+  "Defesa Territorial III",
+  "Policiamento Ambiental",
+  "Policiamento de Trânsito",
+  "Policiamento de Grandes eventos",
+  "Técnicas não letais",
+  "Gestão de Recursos Públicos",
+  "Gestão Pública por Resultados",
+  "Gestão de Logística e Patrimônio",
+  "Tiro Policial",
+  "Termo Circunstanciado de Ocorrência",
+  "Natação",
+];

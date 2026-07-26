@@ -1,63 +1,74 @@
 import { useMemo } from "react";
 import { useNotasModulo, TabelaModulo } from "@/hooks/useNotasModulo";
 import { Student } from "@/data/mockData";
-import { DetailedStudent } from "@/hooks/useGoogleSheets"; // tipo já existente no projeto original
+import { DetailedStudent } from "@/hooks/useGoogleSheets";
+
+// Todos os campos "fixos" do tipo Student legado não são mais usados para exibir
+// dados (o StudentDetailsModal já lê de `grades`, um dicionário dinâmico), mas
+// preenchemos com 0 para satisfazer o tipo TypeScript sem reescrever o tipo inteiro.
+const CAMPOS_LEGADOS_ZERADOS: Omit<Student, "rank" | "nome" | "mediaFinal"> = {
+  ordenUnidaVC: 0, ordenUnidaVF: 0, armamentoVC: 0, armamentoVF: 0,
+  comunicacaoVC: 0, comunicacaoVF: 0, sistemaSeguranca: 0, historiaPM: 0,
+  legislacaoPenal: 0, educacaoFisica: 0, educacaoFinanceira: 0, didatica: 0,
+  administracaoPublica: 0, bombeiroMilitar: 0, direitoAmbiental: 0, defesaPessoal: 0,
+  redacaoOficial: 0, libras: 0, metodologiaCientifica: 0, cerimonialProtocolo: 0,
+  teoriaPolicia: 0, tecnicasPoliciamento: 0, popI: 0, defesaTerritorial: 0,
+  hipologia: 0, geopolitica: 0, policiaComunitaria: 0, legislacaoPolicial: 0,
+  direitosHumanos: 0, medicinaLegal: 0, direitoProcessual: 0, direitoPenalMilitar: 0,
+  direitoAdministrativo: 0, aph: 0, tiroPolicial: 0,
+};
+
+export interface AlunoModulo extends DetailedStudent {
+  aluno_id: string;
+}
 
 /**
- * Constrói a lista de alunos no MESMO formato (DetailedStudent) que os componentes
- * de dashboard já esperam, a partir das linhas normalizadas (aluno_id, materia, nota_final)
- * lidas do Supabase. Assim, KPICard, RankingTable, HighlightCard, etc. não precisam mudar.
- *
- * @param tabela nome da tabela do módulo (notas_cfo1, notas_cfo2 ou notas_cfo3)
- * @param materiaParaCampo mapa "nome da matéria" -> campo do tipo Student (ver src/config/materiasCfoX.ts)
+ * Constrói a lista de alunos (formato DetailedStudent, compatível com os
+ * componentes de dashboard existentes) a partir das notas normalizadas do
+ * Supabase. `listaMaterias` é a lista oficial de disciplinas do módulo
+ * (ver src/config/materiasCfoX.ts) — usada só para saber o total de matérias
+ * do curso, não para restringir os nomes aceitos.
  */
-export function useAlunosModulo(
-  tabela: TabelaModulo,
-  materiaParaCampo: Record<string, keyof Student>
-) {
+export function useAlunosModulo(tabela: TabelaModulo, listaMaterias: string[]) {
   const { rows, loading, error, refetch, salvarNota, excluirNota } = useNotasModulo(tabela);
 
-  const students = useMemo<DetailedStudent[]>(() => {
-    // agrupa as linhas por aluno
+  const students = useMemo<AlunoModulo[]>(() => {
     const porAluno = new Map<string, { nome: string; grades: Record<string, number> }>();
 
     for (const row of rows) {
       if (!porAluno.has(row.aluno_id)) {
         porAluno.set(row.aluno_id, { nome: row.aluno_nome ?? "—", grades: {} });
       }
-      porAluno.get(row.aluno_id)!.grades[row.materia] = row.nota_final ?? 0;
+      if (row.nota_final !== null) {
+        porAluno.get(row.aluno_id)!.grades[row.materia] = row.nota_final;
+      }
     }
 
     const provisorio = Array.from(porAluno.entries()).map(([alunoId, { nome, grades }]) => {
-      const student: Partial<Student> = { nome };
-
-      for (const [materia, campo] of Object.entries(materiaParaCampo)) {
-        (student as any)[campo] = grades[materia] ?? 0;
-      }
-
-      // Se a "MÉDIA FINAL" não foi lançada manualmente, calcula a média simples
-      // das matérias já lançadas (ajuste aqui se a fórmula oficial for diferente,
-      // ex: pesos diferentes por matéria).
       const valores = Object.values(grades);
-      const mediaCalculada =
-        valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
+      const mediaFinal = valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
 
-      student.mediaFinal = (student as any).mediaFinal || mediaCalculada;
-
-      return { ...student, rank: 0, grades } as DetailedStudent;
+      return {
+        ...CAMPOS_LEGADOS_ZERADOS,
+        aluno_id: alunoId,
+        nome,
+        mediaFinal,
+        rank: 0,
+        grades,
+      } as AlunoModulo;
     });
 
-    // ordena por média e atribui o rank
     provisorio.sort((a, b) => b.mediaFinal - a.mediaFinal);
     provisorio.forEach((s, i) => (s.rank = i + 1));
 
     return provisorio;
-  }, [rows, materiaParaCampo]);
+  }, [rows]);
 
   const launchedSubjects = useMemo(() => {
-    const set = new Set(rows.map((r) => r.materia));
-    return Array.from(set);
-  }, [rows]);
+    const set = new Set(rows.filter((r) => r.nota_final !== null).map((r) => r.materia));
+    // só conta como "lançada" se a matéria for uma das oficiais do módulo
+    return listaMaterias.filter((m) => set.has(m));
+  }, [rows, listaMaterias]);
 
   return {
     students,
@@ -68,6 +79,6 @@ export function useAlunosModulo(
     excluirNota,
     subjectsLaunched: launchedSubjects.length,
     launchedSubjects,
-    allSubjects: Object.keys(materiaParaCampo),
+    allSubjects: listaMaterias,
   };
 }

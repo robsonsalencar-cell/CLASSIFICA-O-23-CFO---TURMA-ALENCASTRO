@@ -30,11 +30,6 @@ export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Pr
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{tituloModulo}</h1>
-        <p className="text-sm text-muted-foreground">Seu desempenho individual neste módulo.</p>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Minha média"

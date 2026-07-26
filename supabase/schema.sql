@@ -79,7 +79,8 @@ create table public.notas_cfo1 (
   id uuid primary key default gen_random_uuid(),
   aluno_id uuid not null references public.profiles(id) on delete cascade,
   materia text not null,
-  vc numeric(6,4),           -- Verificação Contínua (se aplicável)
+  vc numeric(6,4),           -- legado, mantido por compatibilidade; use vc_lista
+  vc_lista numeric[] default '{}',  -- permite mais de uma nota de VC por matéria
   vf numeric(6,4),           -- Verificação Final (se aplicável)
   nota_final numeric(6,4),
   updated_at timestamptz not null default now(),
@@ -258,6 +259,47 @@ $$;
 -- (a própria função internamente já restringe o que é devolvido)
 grant execute on function public.estatisticas_modulo(text, uuid) to authenticated;
 grant execute on function public.estatisticas_classificacao_geral(uuid) to authenticated;
+
+-- ============================================================
+-- 9) PERSONALIZAÇÃO DA TURMA (nome + brasão, editável pelo admin)
+-- ============================================================
+create table public.configuracoes_turma (
+  id int primary key default 1,
+  nome_turma text not null default '23º CFO',
+  subtitulo_turma text not null default 'Turma Alencastro',
+  brasao_url text,
+  updated_at timestamptz not null default now(),
+  constraint configuracoes_turma_singleton check (id = 1)
+);
+
+insert into public.configuracoes_turma (id, nome_turma, subtitulo_turma, brasao_url)
+values (1, '23º CFO', 'Turma Alencastro', '/lovable-uploads/brasao-novo.png');
+
+alter table public.configuracoes_turma enable row level security;
+
+-- Leitura liberada até para visitantes não logados (a tela de login também
+-- usa essa configuração para mostrar o brasão/nome personalizados)
+create policy "configuracoes_select_todos" on public.configuracoes_turma
+  for select using (true);
+
+create policy "configuracoes_admin_write" on public.configuracoes_turma
+  for all using (public.is_admin()) with check (public.is_admin());
+
+insert into storage.buckets (id, name, public)
+values ('brasoes', 'brasoes', true)
+on conflict (id) do nothing;
+
+create policy "brasoes_leitura_publica" on storage.objects
+  for select using (bucket_id = 'brasoes');
+
+create policy "brasoes_admin_insere" on storage.objects
+  for insert with check (bucket_id = 'brasoes' and public.is_admin());
+
+create policy "brasoes_admin_atualiza" on storage.objects
+  for update using (bucket_id = 'brasoes' and public.is_admin());
+
+create policy "brasoes_admin_apaga" on storage.objects
+  for delete using (bucket_id = 'brasoes' and public.is_admin());
 
 -- ============================================================
 -- COMO TORNAR SEU USUÁRIO ADMIN (rode depois de você se cadastrar):

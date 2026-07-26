@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useConfiguracaoTurma } from "@/hooks/useConfiguracaoTurma";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ const modulos = [
 
 export function AppSidebar() {
   const { profile, isAdmin, viewingAsAlunoId, setViewingAsAlunoId, signOut } = useAuth();
+  const { config } = useConfiguracaoTurma();
   const [alunos, setAlunos] = useState<{ id: string; nome_completo: string }[]>([]);
 
   useEffect(() => {
@@ -50,10 +52,10 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <img src="/lovable-uploads/brasao-novo.png" alt="Brasão 23º CFO" className="w-9 h-9 object-contain" />
+          <img src={config.brasao_url ?? "/lovable-uploads/brasao-novo.png"} alt={config.nome_turma} className="w-9 h-9 object-contain" />
           <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-foreground">23º CFO</p>
-            <p className="text-xs text-muted-foreground">Turma Alencastro</p>
+            <p className="text-sm font-bold uppercase tracking-wide text-foreground">{config.nome_turma}</p>
+            <p className="text-xs text-muted-foreground">{config.subtitulo_turma}</p>
           </div>
         </div>
       </SidebarHeader>

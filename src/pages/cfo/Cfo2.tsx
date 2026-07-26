@@ -13,12 +13,14 @@ import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { useAlunosModulo } from "@/hooks/useAlunosModulo";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
 import { useAuth } from "@/contexts/AuthContext";
+import { useConfiguracaoTurma } from "@/hooks/useConfiguracaoTurma";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
 import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, RefreshCw, BookOpen, Loader2 } from "lucide-react";
 
 const Cfo2 = () => {
   const { isAdmin, viewingAsAlunoId } = useAuth();
+  const { config } = useConfiguracaoTurma();
   const [selectedStudent, setSelectedStudent] = useState<DetailedStudent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -48,64 +50,74 @@ const Cfo2 = () => {
     setIsModalOpen(true);
   };
 
+  const header = (
+    <header className="bg-gradient-to-r from-card/95 via-card-header/95 to-card/95 border-b border-primary/20 shadow-lg">
+      <div className="container mx-auto px-4 py-6">
+        <div className="text-center">
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <img
+                src={config.brasao_url ?? "/lovable-uploads/brasao-novo.png"}
+                alt={config.nome_turma}
+                className="w-40 h-40 md:w-48 md:h-48 object-contain drop-shadow-2xl"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-success/10 blur-xl opacity-30 -z-10"></div>
+            </div>
+          </div>
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-[hsl(140,70%,60%)] via-[hsl(135,70%,55%)] to-[hsl(130,70%,50%)] bg-clip-text text-transparent mb-3 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]">
+            Classificação – {config.nome_turma} II
+          </h1>
+          <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-[hsl(140,70%,55%)] via-[hsl(135,70%,50%)] to-[hsl(130,70%,45%)] bg-clip-text text-transparent">
+            Painel de desempenho dos alunos oficiais - {config.subtitulo_turma}
+          </p>
+
+          <div className="mt-4 flex justify-center items-center gap-4 flex-wrap">
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+                {error}
+              </div>
+            )}
+            <button
+              onClick={refetch}
+              disabled={loading}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground border border-border rounded-md px-3 py-1.5"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Atualizar
+            </button>
+          </div>
+          <div className="mt-3 text-right">
+            <span className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+
   if (!mostrarVisaoCompleta) {
     return (
-      <ResumoIndividualModulo tabela="notas_cfo2" tabelaNotas="notas_cfo2" tituloModulo="CFO II" />
+      <div className="min-h-screen bg-background">
+        {header}
+        <ResumoIndividualModulo tabela="notas_cfo2" tabelaNotas="notas_cfo2" tituloModulo="CFO II" />
+      </div>
     );
   }
 
   if (loading && students.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background">
+        {header}
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-gradient-to-r from-card/95 via-card-header/95 to-card/95 border-b border-primary/20 shadow-lg">
-        <div className="container mx-auto px-4 py-6">
-          <div className="text-center">
-            <div className="flex justify-center mb-6">
-              <div className="relative">
-                <img
-                  src="/lovable-uploads/brasao-novo.png"
-                  alt="Brasão 23º CFO - Turma Alencastro"
-                  className="w-40 h-40 md:w-48 md:h-48 object-contain drop-shadow-2xl"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-success/10 blur-xl opacity-30 -z-10"></div>
-              </div>
-            </div>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-[hsl(140,70%,60%)] via-[hsl(135,70%,55%)] to-[hsl(130,70%,50%)] bg-clip-text text-transparent mb-3 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]">
-              Classificação – 23° CFO II
-            </h1>
-            <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-[hsl(140,70%,55%)] via-[hsl(135,70%,50%)] to-[hsl(130,70%,45%)] bg-clip-text text-transparent">
-              Painel de desempenho dos alunos oficiais - Turma Alencastro
-            </p>
-
-            <div className="mt-4 flex justify-center items-center gap-4 flex-wrap">
-              {error && (
-                <div className="flex items-center gap-2 text-sm text-destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  {error}
-                </div>
-              )}
-              <button
-                onClick={refetch}
-                disabled={loading}
-                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground border border-border rounded-md px-3 py-1.5"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                Atualizar
-              </button>
-            </div>
-            <div className="mt-3 text-right">
-              <span className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      {header}
 
       <main className="container mx-auto px-4 py-8 space-y-8">
         <section>

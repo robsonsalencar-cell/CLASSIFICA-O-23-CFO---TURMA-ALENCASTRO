@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useNotasModulo, TabelaModulo, NotaRow } from "@/hooks/useNotasModulo";
+import { calcularNotaFinalMulti, parseListaVc } from "@/config/formulaNotas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,20 +25,21 @@ interface AlunoOption {
 interface Props {
   tabela: TabelaModulo;
   tituloModulo: string; // ex: "CFO I"
+  listaMaterias: string[]; // lista oficial de disciplinas do módulo
 }
 
-export function AdminGradesEditor({ tabela, tituloModulo }: Props) {
+export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props) {
   const { rows, loading, error, salvarNota, excluirNota } = useNotasModulo(tabela);
   const [alunos, setAlunos] = useState<AlunoOption[]>([]);
-  const [edits, setEdits] = useState<Record<string, Partial<NotaRow>>>({});
+  const [edits, setEdits] = useState<Record<string, { vc: string; vf: string; nota_final: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
   // formulário de novo lançamento
   const [novoAlunoId, setNovoAlunoId] = useState("");
   const [novaMateria, setNovaMateria] = useState("");
-  const [novoVc, setNovoVc] = useState("");
+  const [novoVc, setNovoVc] = useState(""); // aceita "8, 9, 7.5"
   const [novoVf, setNovoVf] = useState("");
-  const [novaFinal, setNovaFinal] = useState("");
+  const [novaFinalManual, setNovaFinalManual] = useState<string | null>(null);
   const [salvandoNovo, setSalvandoNovo] = useState(false);
 
   useEffect(() => {
@@ -49,22 +51,47 @@ export function AdminGradesEditor({ tabela, tituloModulo }: Props) {
       .then(({ data }) => setAlunos(data ?? []));
   }, []);
 
-  function handleFieldChange(rowId: string, field: keyof NotaRow, value: string) {
-    setEdits((prev) => ({
-      ...prev,
-      [rowId]: { ...prev[rowId], [field]: value === "" ? null : Number(value) },
-    }));
+  const novaFinalCalculada = calcularNotaFinalMulti(
+    parseListaVc(novoVc),
+    novoVf ? Number(novoVf) : null
+  );
+  const novaFinalExibida = novaFinalManual ?? (novaFinalCalculada !== null ? String(novaFinalCalculada) : "");
+
+  function getEdicao(row: NotaRow) {
+    return (
+      edits[row.id] ?? {
+        vc: (row.vc_lista ?? []).join(", "),
+        vf: row.vf !== null ? String(row.vf) : "",
+        nota_final: row.nota_final !== null ? String(row.nota_final) : "",
+      }
+    );
+  }
+
+  function handleVcVfChange(row: NotaRow, field: "vc" | "vf", value: string) {
+    const atual = getEdicao(row);
+    const atualizado = { ...atual, [field]: value };
+    const calculada = calcularNotaFinalMulti(
+      parseListaVc(atualizado.vc),
+      atualizado.vf ? Number(atualizado.vf) : null
+    );
+    atualizado.nota_final = calculada !== null ? String(calculada) : atualizado.nota_final;
+    setEdits((prev) => ({ ...prev, [row.id]: atualizado }));
+  }
+
+  function handleNotaFinalManual(row: NotaRow, value: string) {
+    const atual = getEdicao(row);
+    setEdits((prev) => ({ ...prev, [row.id]: { ...atual, nota_final: value } }));
   }
 
   async function handleSalvarLinha(row: NotaRow) {
     setSavingId(row.id);
-    const patch = edits[row.id] ?? {};
+    const e = getEdicao(row);
     const { error } = await salvarNota({
       aluno_id: row.aluno_id,
       materia: row.materia,
-      vc: (patch.vc ?? row.vc) as number | null,
-      vf: (patch.vf ?? row.vf) as number | null,
-      nota_final: (patch.nota_final ?? row.nota_final) as number | null,
+      vc_lista: parseListaVc(e.vc),
+      vf: e.vf ? Number(e.vf) : null,
+      nota_final: e.nota_final ? Number(e.nota_final) : null,
     });
     setSavingId(null);
     if (error) {
@@ -89,16 +116,16 @@ export function AdminGradesEditor({ tabela, tituloModulo }: Props) {
 
   async function handleNovoLancamento() {
     if (!novoAlunoId || !novaMateria) {
-      toast({ title: "Selecione o aluno e informe a matéria", variant: "destructive" });
+      toast({ title: "Selecione o aluno e a matéria", variant: "destructive" });
       return;
     }
     setSalvandoNovo(true);
     const { error } = await salvarNota({
       aluno_id: novoAlunoId,
       materia: novaMateria,
-      vc: novoVc ? Number(novoVc) : null,
+      vc_lista: parseListaVc(novoVc),
       vf: novoVf ? Number(novoVf) : null,
-      nota_final: novaFinal ? Number(novaFinal) : null,
+      nota_final: novaFinalExibida ? Number(novaFinalExibida) : null,
     });
     setSalvandoNovo(false);
     if (error) {
@@ -108,7 +135,7 @@ export function AdminGradesEditor({ tabela, tituloModulo }: Props) {
       setNovaMateria("");
       setNovoVc("");
       setNovoVf("");
-      setNovaFinal("");
+      setNovaFinalManual(null);
     }
   }
 
@@ -122,7 +149,7 @@ export function AdminGradesEditor({ tabela, tituloModulo }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
             <div className="md:col-span-2 space-y-1">
               <Label>Aluno</Label>
               <Select value={novoAlunoId} onValueChange={setNovoAlunoId}>
@@ -138,29 +165,51 @@ export function AdminGradesEditor({ tabela, tituloModulo }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
+            <div className="md:col-span-2 space-y-1">
               <Label>Matéria</Label>
-              <Input value={novaMateria} onChange={(e) => setNovaMateria(e.target.value)} placeholder="Ex: Direito Penal" />
+              <Select value={novaMateria} onValueChange={setNovaMateria}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a disciplina" />
+                </SelectTrigger>
+                <SelectContent>
+                  {listaMaterias.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
-              <Label>VC</Label>
-              <Input type="number" step="0.0001" value={novoVc} onChange={(e) => setNovoVc(e.target.value)} />
+              <Label>VC (1 ou mais, separe por vírgula)</Label>
+              <Input placeholder="ex: 8, 9, 7.5" value={novoVc} onChange={(e) => setNovoVc(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>VF</Label>
               <Input type="number" step="0.0001" value={novoVf} onChange={(e) => setNovoVf(e.target.value)} />
             </div>
-            <div className="space-y-1">
-              <Label>Nota final</Label>
-              <Input type="number" step="0.0001" value={novaFinal} onChange={(e) => setNovaFinal(e.target.value)} />
+            <div className="md:col-span-2 space-y-1">
+              <Label>Nota final (automática)</Label>
+              <Input
+                type="number"
+                step="0.0001"
+                value={novaFinalExibida}
+                onChange={(e) => setNovaFinalManual(e.target.value)}
+                className="font-semibold"
+              />
             </div>
-            <div className="md:col-span-5 flex justify-end">
+            <div className="md:col-span-6 flex justify-end">
               <Button onClick={handleNovoLancamento} disabled={salvandoNovo}>
                 {salvandoNovo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Lançar nota
               </Button>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            A nota final é calculada automaticamente: média das VCs lançadas, combinada com a VF.
+            Se houver mais de uma verificação contínua, digite todas separadas por vírgula (ex: "8, 9, 7.5").
+            Você pode digitar manualmente por cima do valor calculado, se precisar de uma exceção.
+          </p>
         </CardContent>
       </Card>
 
@@ -182,69 +231,66 @@ export function AdminGradesEditor({ tabela, tituloModulo }: Props) {
                   <TableRow>
                     <TableHead>Aluno</TableHead>
                     <TableHead>Matéria</TableHead>
-                    <TableHead className="w-28">VC</TableHead>
+                    <TableHead className="w-40">VC (separe por vírgula)</TableHead>
                     <TableHead className="w-28">VF</TableHead>
                     <TableHead className="w-28">Nota final</TableHead>
                     <TableHead className="w-24 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className="font-medium">{row.aluno_nome ?? row.aluno_id}</TableCell>
-                      <TableCell>{row.materia}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.0001"
-                          defaultValue={row.vc ?? ""}
-                          onChange={(e) => handleFieldChange(row.id, "vc", e.target.value)}
-                          className="h-8"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.0001"
-                          defaultValue={row.vf ?? ""}
-                          onChange={(e) => handleFieldChange(row.id, "vf", e.target.value)}
-                          className="h-8"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.0001"
-                          defaultValue={row.nota_final ?? ""}
-                          onChange={(e) => handleFieldChange(row.id, "nota_final", e.target.value)}
-                          className="h-8"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleSalvarLinha(row)}
-                          disabled={savingId === row.id}
-                          title="Salvar"
-                        >
-                          {savingId === row.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Save className="w-4 h-4 text-success" />
-                          )}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleExcluir(row.id)}
-                          title="Excluir"
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {rows.map((row) => {
+                    const e = getEdicao(row);
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell className="font-medium">{row.aluno_nome ?? row.aluno_id}</TableCell>
+                        <TableCell>{row.materia}</TableCell>
+                        <TableCell>
+                          <Input
+                            placeholder="ex: 8, 9"
+                            value={e.vc}
+                            onChange={(ev) => handleVcVfChange(row, "vc", ev.target.value)}
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            value={e.vf}
+                            onChange={(ev) => handleVcVfChange(row, "vf", ev.target.value)}
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            value={e.nota_final}
+                            onChange={(ev) => handleNotaFinalManual(row, ev.target.value)}
+                            className="h-8 font-semibold"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleSalvarLinha(row)}
+                            disabled={savingId === row.id}
+                            title="Salvar"
+                          >
+                            {savingId === row.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Save className="w-4 h-4 text-success" />
+                            )}
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => handleExcluir(row.id)} title="Excluir">
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

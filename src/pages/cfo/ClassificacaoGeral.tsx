@@ -12,12 +12,18 @@ import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
 import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
 import { useAuth } from "@/contexts/AuthContext";
+import { useConfiguracaoTurma } from "@/hooks/useConfiguracaoTurma";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
 import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, BookOpen, Loader2 } from "lucide-react";
 
+function mediaSimples(valores: number[]): number {
+  return valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
+}
+
 const ClassificacaoGeral = () => {
   const { isAdmin, viewingAsAlunoId } = useAuth();
+  const { config } = useConfiguracaoTurma();
   const mostrarVisaoCompleta = isAdmin && !viewingAsAlunoId;
   const [selectedStudent, setSelectedStudent] = useState<DetailedStudent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,28 +34,26 @@ const ClassificacaoGeral = () => {
 
   const loading = cfo1.loading || cfo2.loading || cfo3.loading;
 
-  // Combina os 3 módulos por aluno (usando o próprio nome como chave de junção aqui,
-  // já que useAlunosModulo hoje devolve o Student "achatado". Se quiser juntar por
-  // aluno_id em vez de nome, ajuste useAlunosModulo para expor também o aluno_id.)
+  // Combina os 3 módulos por aluno_id (chave estável — não depende de grafia do nome).
   const students = useMemo<DetailedStudent[]>(() => {
-    const porNome = new Map<
+    const porAlunoId = new Map<
       string,
       { nome: string; cfoI?: number; cfoII?: number; cfoIII?: number }
     >();
 
     for (const s of cfo1.students) {
-      porNome.set(s.nome, { ...(porNome.get(s.nome) ?? { nome: s.nome }), cfoI: s.mediaFinal });
+      porAlunoId.set(s.aluno_id, { ...(porAlunoId.get(s.aluno_id) ?? { nome: s.nome }), cfoI: s.mediaFinal });
     }
     for (const s of cfo2.students) {
-      porNome.set(s.nome, { ...(porNome.get(s.nome) ?? { nome: s.nome }), cfoII: s.mediaFinal });
+      porAlunoId.set(s.aluno_id, { ...(porAlunoId.get(s.aluno_id) ?? { nome: s.nome }), cfoII: s.mediaFinal });
     }
     for (const s of cfo3.students) {
-      porNome.set(s.nome, { ...(porNome.get(s.nome) ?? { nome: s.nome }), cfoIII: s.mediaFinal });
+      porAlunoId.set(s.aluno_id, { ...(porAlunoId.get(s.aluno_id) ?? { nome: s.nome }), cfoIII: s.mediaFinal });
     }
 
-    const lista = Array.from(porNome.values()).map((s) => {
+    const lista = Array.from(porAlunoId.values()).map((s) => {
       const medias = [s.cfoI, s.cfoII, s.cfoIII].filter((v): v is number => typeof v === "number");
-      const mediaFinal = medias.length > 0 ? medias.reduce((a, b) => a + b, 0) / medias.length : 0;
+      const mediaFinal = mediaSimples(medias);
       return {
         nome: s.nome,
         mediaFinal,
@@ -67,6 +71,11 @@ const ClassificacaoGeral = () => {
   const totalMateriasLancadas = cfo1.subjectsLaunched + cfo2.subjectsLaunched + cfo3.subjectsLaunched;
   const totalMaterias = cfo1.allSubjects.length + cfo2.allSubjects.length + cfo3.allSubjects.length;
 
+  // Médias da turma por módulo (usadas nos 3 painéis extras)
+  const mediaTurmaCfo1 = useMemo(() => mediaSimples(cfo1.students.map((s) => s.mediaFinal).filter((m) => m > 0)), [cfo1.students]);
+  const mediaTurmaCfo2 = useMemo(() => mediaSimples(cfo2.students.map((s) => s.mediaFinal).filter((m) => m > 0)), [cfo2.students]);
+  const mediaTurmaCfo3 = useMemo(() => mediaSimples(cfo3.students.map((s) => s.mediaFinal).filter((m) => m > 0)), [cfo3.students]);
+
   const topThree = students.slice(0, 3);
   const bottomThree = students.slice(-3).sort((a, b) => b.mediaFinal - a.mediaFinal);
 
@@ -75,50 +84,62 @@ const ClassificacaoGeral = () => {
     setIsModalOpen(true);
   };
 
+  const header = (
+    <header className="bg-gradient-to-r from-[hsl(220,50%,12%)] via-card/95 to-[hsl(220,50%,12%)] border-b border-primary/30 shadow-lg">
+      <div className="container mx-auto px-4 py-6">
+        <div className="text-center">
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <img
+                src={config.brasao_url ?? "/lovable-uploads/brasao-novo.png"}
+                alt={config.nome_turma}
+                className="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 object-contain drop-shadow-2xl"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-[hsl(220,60%,30%)]/10 blur-xl opacity-30 -z-10"></div>
+            </div>
+          </div>
+
+          <div className="relative inline-block mb-4">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 blur-lg -z-10"></div>
+            <p className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-wider px-8 py-3 border-y-2 border-primary/60 bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent uppercase">
+              CLASSIFICAÇÃO FINAL – {config.nome_turma}
+            </p>
+          </div>
+
+          <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent">
+            Painel de desempenho dos alunos oficiais - {config.subtitulo_turma}
+          </p>
+          <div className="w-full text-right mt-2">
+            <span className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+
   if (!mostrarVisaoCompleta) {
-    return <ResumoIndividualModulo tabela="geral" tituloModulo="Classificação Geral" />;
+    return (
+      <div className="min-h-screen bg-background">
+        {header}
+        <ResumoIndividualModulo tabela="geral" tituloModulo="Classificação Geral" />
+      </div>
+    );
   }
 
   if (loading && students.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background">
+        {header}
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-gradient-to-r from-[hsl(220,50%,12%)] via-card/95 to-[hsl(220,50%,12%)] border-b border-primary/30 shadow-lg">
-        <div className="container mx-auto px-4 py-6">
-          <div className="text-center">
-            <div className="flex justify-center mb-6">
-              <div className="relative">
-                <img
-                  src="/lovable-uploads/brasao-novo.png"
-                  alt="Brasão 23º CFO - Turma Alencastro"
-                  className="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 object-contain drop-shadow-2xl"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-[hsl(220,60%,30%)]/10 blur-xl opacity-30 -z-10"></div>
-              </div>
-            </div>
-
-            <div className="relative inline-block mb-4">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 blur-lg -z-10"></div>
-              <p className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-wider px-8 py-3 border-y-2 border-primary/60 bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent uppercase">
-                CLASSIFICAÇÃO FINAL – 23° CFO
-              </p>
-            </div>
-
-            <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent">
-              Painel de desempenho dos alunos oficiais - Turma Alencastro
-            </p>
-            <div className="w-full text-right mt-2">
-              <span className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      {header}
 
       <main className="container mx-auto px-4 py-8 space-y-8">
         <section>
@@ -158,6 +179,34 @@ const ClassificacaoGeral = () => {
               subtitle={kpis.menorMedia.aluno}
               variant="warning"
               icon={<TrendingDown className="w-4 h-4" />}
+            />
+          </div>
+        </section>
+
+        {/* 3 painéis extras: média da turma em cada módulo isoladamente */}
+        <section>
+          <h2 className="text-xl font-semibold mb-4 text-foreground">Média da Turma por Módulo</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <KPICard
+              title="Média CFO I"
+              value={mediaTurmaCfo1.toFixed(4)}
+              subtitle={`${cfo1.students.length} alunos com nota lançada`}
+              variant="default"
+              icon={<Target className="w-4 h-4 text-[hsl(210,90%,65%)]" />}
+            />
+            <KPICard
+              title="Média CFO II"
+              value={mediaTurmaCfo2.toFixed(4)}
+              subtitle={`${cfo2.students.length} alunos com nota lançada`}
+              variant="default"
+              icon={<Target className="w-4 h-4 text-[hsl(140,70%,50%)]" />}
+            />
+            <KPICard
+              title="Média CFO III"
+              value={mediaTurmaCfo3.toFixed(4)}
+              subtitle={`${cfo3.students.length} alunos com nota lançada`}
+              variant="default"
+              icon={<Target className="w-4 h-4 text-[hsl(43,96%,56%)]" />}
             />
           </div>
         </section>
