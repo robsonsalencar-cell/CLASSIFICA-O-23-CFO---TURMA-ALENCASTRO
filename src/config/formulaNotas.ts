@@ -2,21 +2,24 @@
  * Fórmula oficial de cálculo da Nota Final a partir de VC (Verificação Contínua)
  * e VF (Verificação Final).
  *
- * PADRÃO ASSUMIDO: média simples — (VC + VF) / 2.
- * Se a fórmula oficial usar pesos diferentes (ex: VC 40% / VF 60%), troque o
- * cálculo abaixo — é o ÚNICO lugar que precisa mudar, tanto o formulário do
- * admin quanto a importação em massa usam esta função.
+ * CONFIRMADO PELO USUÁRIO (exemplo real: Gracielle, Tiro Policial II):
+ *   VCs: 2.9, 6.0, 8.0, 1.9 → média = 4.7 (peso 2)
+ *   VF: 10 (peso 3)
+ *   Nota final = (4.7×2 + 10×3) / 5 = 39.4/5 = 7.88
+ *
+ * Ou seja: (médiaVC × 2 + VF × 3) / 5  — equivalente a médiaVC×40% + VF×60%.
  */
 export function calcularNotaFinal(vc: number | null, vf: number | null): number | null {
   if (vc === null && vf === null) return null;
   if (vc === null) return vf;
   if (vf === null) return vc;
-  return Number(((vc + vf) / 2).toFixed(4));
+  return Number(((vc * 2 + vf * 3) / 5).toFixed(4));
 }
 
 /**
  * Mesma fórmula, mas aceitando MÚLTIPLAS notas de VC (ex: VC1, VC2, VC3...).
- * A "nota VC" usada na fórmula é a média simples de todas as VCs lançadas.
+ * A "nota VC" usada na fórmula é a média simples de todas as VCs lançadas,
+ * depois combinada com a VF usando o peso oficial (VC peso 2, VF peso 3).
  */
 export function calcularNotaFinalMulti(
   vcLista: number[] | null | undefined,

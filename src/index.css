@@ -86,6 +86,41 @@
     --sidebar-ring: 43 96% 56%;
   }
 
+  /* ============================================================
+     TEMAS POR MÓDULO — restauram a identidade visual EXATA de cada
+     projeto original (CFO I azul, CFO II verde, CFO III/Geral dourado).
+     Aplicada como classe no <div> raiz de cada página; todo componente
+     interno que usa var(--primary)/var(--background)/etc. (cards, tabelas,
+     ícones, menu lateral) herda automaticamente, sem precisar editar cada
+     componente um por um.
+     ============================================================ */
+  .tema-cfo1 {
+    --background: 220 45% 12%;
+    --primary: 210 90% 65%;
+    --primary-hover: 210 95% 70%;
+    --sidebar-primary: 210 90% 65%;
+    --sidebar-ring: 210 90% 65%;
+  }
+
+  .tema-cfo2 {
+    --background: 140 45% 12%;
+    --primary: 140 70% 50%;
+    --primary-hover: 140 75% 55%;
+    --success: 140 70% 50%;
+    --success-light: 140 70% 25%;
+    --sidebar-primary: 140 70% 50%;
+    --sidebar-ring: 140 70% 50%;
+  }
+
+  /* CFO III e Classificação Geral já usam a paleta dourada padrão (--root),
+     que é a mesma do projeto original de CFO III — nenhuma sobreposição
+     necessária, mas as classes existem para deixar explícito na marcação. */
+  .tema-cfo3 {
+  }
+
+  .tema-geral {
+  }
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;

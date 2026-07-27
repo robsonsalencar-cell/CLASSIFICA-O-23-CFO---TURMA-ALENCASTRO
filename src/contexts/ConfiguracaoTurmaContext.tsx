@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export interface ConfiguracaoTurma {
@@ -17,7 +17,17 @@ const CONFIG_PADRAO: ConfiguracaoTurma = {
   updated_at: new Date().toISOString(),
 };
 
-export function useConfiguracaoTurma() {
+interface ConfiguracaoTurmaContextValue {
+  config: ConfiguracaoTurma;
+  loading: boolean;
+  refetch: () => Promise<void>;
+  salvarTexto: (nome_turma: string, subtitulo_turma: string) => Promise<{ error: string | null }>;
+  enviarBrasao: (arquivo: File) => Promise<{ error: string | null }>;
+}
+
+const ConfiguracaoTurmaContext = createContext<ConfiguracaoTurmaContextValue | undefined>(undefined);
+
+export function ConfiguracaoTurmaProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<ConfiguracaoTurma>(CONFIG_PADRAO);
   const [loading, setLoading] = useState(true);
 
@@ -32,17 +42,15 @@ export function useConfiguracaoTurma() {
     carregar();
   }, [carregar]);
 
-  /** Admin: atualiza nome/subtítulo da turma */
   async function salvarTexto(nome_turma: string, subtitulo_turma: string) {
     const { error } = await supabase
       .from("configuracoes_turma")
       .update({ nome_turma, subtitulo_turma, updated_at: new Date().toISOString() })
       .eq("id", 1);
-    if (!error) await carregar();
+    if (!error) await carregar(); // atualiza o Context inteiro -> todo mundo que usa o hook re-renderiza
     return { error: error?.message ?? null };
   }
 
-  /** Admin: envia um novo brasão (imagem) e atualiza a URL salva */
   async function enviarBrasao(arquivo: File) {
     const extensao = arquivo.name.split(".").pop();
     const caminho = `brasao-${Date.now()}.${extensao}`;
@@ -63,5 +71,15 @@ export function useConfiguracaoTurma() {
     return { error: updateError?.message ?? null };
   }
 
-  return { config, loading, refetch: carregar, salvarTexto, enviarBrasao };
+  return (
+    <ConfiguracaoTurmaContext.Provider value={{ config, loading, refetch: carregar, salvarTexto, enviarBrasao }}>
+      {children}
+    </ConfiguracaoTurmaContext.Provider>
+  );
+}
+
+export function useConfiguracaoTurma() {
+  const ctx = useContext(ConfiguracaoTurmaContext);
+  if (!ctx) throw new Error("useConfiguracaoTurma precisa estar dentro de <ConfiguracaoTurmaProvider>");
+  return ctx;
 }

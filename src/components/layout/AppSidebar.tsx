@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/hooks/useConfiguracaoTurma";
+import { useConfiguracaoTurma } from "@/contexts/ConfiguracaoTurmaContext";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Sidebar,

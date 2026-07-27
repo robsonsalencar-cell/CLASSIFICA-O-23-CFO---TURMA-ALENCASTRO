@@ -13,7 +13,7 @@ import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { useAlunosModulo } from "@/hooks/useAlunosModulo";
 import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/hooks/useConfiguracaoTurma";
+import { useConfiguracaoTurma } from "@/contexts/ConfiguracaoTurmaContext";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
 import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, RefreshCw, BookOpen, Loader2 } from "lucide-react";
@@ -97,7 +97,7 @@ const Cfo3 = () => {
 
   if (!mostrarVisaoCompleta) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background tema-cfo3">
         {header}
         <ResumoIndividualModulo tabela="notas_cfo3" tabelaNotas="notas_cfo3" tituloModulo="CFO III" />
       </div>
@@ -106,7 +106,7 @@ const Cfo3 = () => {
 
   if (loading && students.length === 0) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background tema-cfo3">
         {header}
         <div className="flex items-center justify-center py-24">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -116,7 +116,7 @@ const Cfo3 = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background tema-cfo3">
       {header}
 
       <main className="container mx-auto px-4 py-8 space-y-8">
@@ -212,6 +212,7 @@ const Cfo3 = () => {
             onStudentClick={handleStudentClick as any}
             kpis={kpis as any}
             subjectProgress={subjectProgress as any}
+            modo="modulo"
           />
         </section>
 

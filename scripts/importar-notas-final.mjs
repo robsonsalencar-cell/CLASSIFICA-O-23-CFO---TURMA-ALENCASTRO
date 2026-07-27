@@ -47,9 +47,20 @@ const ALIASES = {
   "ORDEM UNIDA": "Cultura e Cotidiano Policial Militar", // confirmado pelo usuário: é a mesma disciplina
 };
 
-// (nenhuma matéria fora da matriz oficial restante — "ORDEM UNIDA" foi
-// esclarecida e mapeada acima)
-const MATERIAS_NAO_OFICIAIS = new Set([]);
+// Lista oficial (mesmas 85 disciplinas de src/config/materiasCfoX.ts) — usada
+// para corrigir automaticamente diferenças de MAIÚSCULA/minúscula entre o
+// cabeçalho da planilha (ex: "CERIMONIAL E PROTOCOLO") e o nome oficial
+// (ex: "Cerimonial e Protocolo"). Sem isso, a matéria é gravada com a grafia
+// da planilha e o app não reconhece como "a mesma matéria oficial" ao contar
+// o progresso do curso — foi exatamente o bug relatado.
+const MATERIAS_OFICIAIS = [
+  "Sistema de Segurança Pública no Brasil","História da Policia Militar","Geopolítica de Mato Grosso","Policia Comunitária","Legislação Policial Militar I","Direitos humanos","Medicina Legal","Direito Processual Penal Militar I","Direito Penal Militar I","Direito Administrativo Disciplinar Militar I","Legislação Penal Extravagante I","Direito Ambiental","Redação Oficial Aplicada","Educação Física Policial Militar I","Defesa Pessoal I","Educação Financeira","Libras","Metodologia Científica / Pesquisa","Cerimonial e Protocolo","Comunicação Operacional/Telecomunicações","Armamento de Fogo, Munição e Explosivos","Bombeiro Militar e Defesa Civil","Cultura e Cotidiano Policial Militar","Teoria de Policia","Didática: Sistema de Ensino","Técnicas Gerais de Policiamento I","POP I","Defesa Territorial I","Hipologia e Equitação","Administração Pública Gerencial","APH","Tiro Policial",
+  "Criminologia Aplicada a Segurança Pública","Sociologia do Crime e da Violência","Direito Penal Militar II","Direito Administrativo Aplicado a Seg. Publica.","Direito Processual Penal Militar II","Legislação Policial Militar II","Direito Administrativo Disciplinar Militar II","Legislação Penal Extravagante II","Educação Física Policial Militar II","Defesa Pessoal II","Gestão de Informação – Inteligência","Saúde Segurança aplicada ao Trabalho","Marketing Institucional","Metodologia Científica/Projeto de Pesquisa","Geoprocessamento e Análise Criminal","Emergência e Traumas","Cultura e Cotidiano Policial Militar II","Técnicas Gerais de Policiamento II","POP II","Criminalística","Defesa Territorial II","Policiamento Montado","Uso diferenciado da Força","Gestão de Pessoas","Termo Circunstanciado de Ocorrência","Sistemas Informatizados",
+  "Licitação de Contrato e Aquisição","Direito Penal Militar III","Direito Processual Penal Militar III","Legislação Policial Militar III","Direito Administrativo Disciplinar Militar III","Gerenciamento de Crises e Eventos Críticos","Educação Física Policial Militar III","Controle e submissão","Artigo Científico","Seminário de Trabalho Científico-Workshop de Banca de Defesa do TCC","Cultura e Cotidiano Policial Militar III","EPP – Estagio de Patrulhamento Tático","Técnicas Gerais de Policiamento III","POP III","Segurança Física de Instalações e Dignitários","Defesa Territorial III","Policiamento Ambiental","Policiamento de Trânsito","Policiamento de Grandes eventos","Técnicas não letais","Gestão de Recursos Públicos","Gestão Pública por Resultados","Gestão de Logística e Patrimônio","Termo Circunstanciado de Ocorrência","Natação",
+];
+const MAPA_CANONICO_MINUSCULO = new Map(
+  MATERIAS_OFICIAIS.map((m) => [m.trim().toLowerCase().replace(/\s+/g, " "), m])
+);
 
 const MODULOS = [
   { aba: "CLASSIFICAÇÃO CFO 1", tabela: "notas_cfo1" },
@@ -89,6 +100,8 @@ function classificarColuna(header) {
 }
 
 function nomeOficial(base) {
+  const chave = base.trim().toLowerCase().replace(/\s+/g, " ");
+  if (MAPA_CANONICO_MINUSCULO.has(chave)) return MAPA_CANONICO_MINUSCULO.get(chave);
   return ALIASES[base] ?? base;
 }
 
@@ -167,11 +180,14 @@ async function importarModulo(workbook, aba, tabela, mapaAlunos) {
         vc_lista = [];
         vfFinal = null;
       } else {
-        // VC(s) + VF separados — nota final = média(VCs) combinada com VF
-        // (fórmula em src/config/formulaNotas.ts).
+        // VC(s) + VF separados — fórmula oficial: (médiaVC × 2 + VF × 3) / 5
+        // (confirmado pelo usuário com o exemplo real da Gracielle em Tiro Policial II)
         const vcMedia = vcs.length > 0 ? vcs.reduce((a, b) => a + b, 0) / vcs.length : null;
-        nota_final =
-          vcMedia !== null && vf !== null ? Number(((vcMedia + vf) / 2).toFixed(4)) : vcMedia ?? vf;
+        if (vcMedia !== null && vf !== null) {
+          nota_final = Number(((vcMedia * 2 + vf * 3) / 5).toFixed(4));
+        } else {
+          nota_final = vcMedia ?? vf;
+        }
         vc_lista = vcs;
         vfFinal = vf;
       }

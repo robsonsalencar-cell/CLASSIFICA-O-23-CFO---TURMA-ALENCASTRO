@@ -101,35 +101,37 @@ export const HighlightCard = ({
           {nome}
         </h3>
         
-        {/* CFO Averages */}
-        <div className="grid grid-cols-4 gap-2 mb-2">
-          <div className="text-center">
-            <span className="text-xs font-bold text-muted-foreground block">CFO I</span>
-            <span className={cn("font-extrabold text-sm", getTextColor())}>
-              {cfoAverages?.cfoI?.toFixed(4) ?? "—"}
-            </span>
+        {/* CFO Averages — só na Classificação Geral (quando cfoAverages é passado) */}
+        {cfoAverages && (
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            <div className="text-center">
+              <span className="text-xs font-bold text-muted-foreground block">CFO I</span>
+              <span className={cn("font-extrabold text-sm", getTextColor())}>
+                {cfoAverages?.cfoI?.toFixed(4) ?? "—"}
+              </span>
+            </div>
+            <div className="text-center">
+              <span className="text-xs font-bold text-muted-foreground block">CFO II</span>
+              <span className={cn("font-extrabold text-sm", getTextColor())}>
+                {cfoAverages?.cfoII?.toFixed(4) ?? "—"}
+              </span>
+            </div>
+            <div className="text-center">
+              <span className="text-xs font-bold text-muted-foreground block">CFO III</span>
+              <span className={cn("font-extrabold text-sm", getTextColor())}>
+                {cfoAverages?.cfoIII?.toFixed(4) ?? "—"}
+              </span>
+            </div>
+            <div className="text-center">
+              <span className="text-xs font-bold text-muted-foreground block">MÉDIA</span>
+              <span className={cn("font-extrabold text-sm", getTextColor())}>
+                {mediaFinal.toFixed(4)}
+              </span>
+            </div>
           </div>
-          <div className="text-center">
-            <span className="text-xs font-bold text-muted-foreground block">CFO II</span>
-            <span className={cn("font-extrabold text-sm", getTextColor())}>
-              {cfoAverages?.cfoII?.toFixed(4) ?? "—"}
-            </span>
-          </div>
-          <div className="text-center">
-            <span className="text-xs font-bold text-muted-foreground block">CFO III</span>
-            <span className={cn("font-extrabold text-sm", getTextColor())}>
-              {cfoAverages?.cfoIII?.toFixed(4) ?? "—"}
-            </span>
-          </div>
-          <div className="text-center">
-            <span className="text-xs font-bold text-muted-foreground block">MÉDIA</span>
-            <span className={cn("font-extrabold text-sm", getTextColor())}>
-              {mediaFinal.toFixed(4)}
-            </span>
-          </div>
-        </div>
+        )}
 
-        <div className="flex items-center justify-between border-t border-border/30 pt-2">
+        <div className={cn("flex items-center justify-between", cfoAverages && "border-t border-border/30 pt-2")}>
           <span className="text-xs text-muted-foreground font-medium">
             Média Final
           </span>

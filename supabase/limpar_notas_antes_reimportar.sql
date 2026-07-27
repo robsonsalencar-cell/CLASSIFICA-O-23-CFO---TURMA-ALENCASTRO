@@ -1,0 +1,12 @@
+-- ============================================================
+-- LIMPEZA antes de reimportar — rode isso ANTES de rodar de novo o
+-- importar-notas-final.mjs corrigido.
+--
+-- Por quê: a fórmula da nota final e a grafia de algumas matérias mudaram
+-- entre a primeira e a segunda versão do script. Sem limpar antes, ficariam
+-- linhas duplicadas (uma com o nome/valor antigo errado, outra com o novo
+-- certo), o que estragaria as médias.
+--
+-- Isso NÃO apaga alunos nem contas de login — só as notas dos 3 módulos.
+-- ============================================================
+truncate table public.notas_cfo1, public.notas_cfo2, public.notas_cfo3;

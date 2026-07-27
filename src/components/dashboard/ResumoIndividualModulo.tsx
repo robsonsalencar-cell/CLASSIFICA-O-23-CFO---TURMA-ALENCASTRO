@@ -17,7 +17,13 @@ export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Pr
   const { dados, loading: loadingStats } = useEstatisticasModulo(tabela);
   const { rows, loading: loadingNotas } = useNotasModulo(tabelaNotas ?? ("notas_cfo1" as TabelaModulo));
 
+  // Só usados quando tabela === "geral": média do próprio aluno em cada módulo
+  const cfo1Stats = useEstatisticasModulo("notas_cfo1");
+  const cfo2Stats = useEstatisticasModulo("notas_cfo2");
+  const cfo3Stats = useEstatisticasModulo("notas_cfo3");
+
   const mostrarNotas = Boolean(tabelaNotas);
+  const mostrarQuebraPorModulo = tabela === "geral";
   const loading = loadingStats || (mostrarNotas && loadingNotas);
 
   if (loading) {
@@ -65,6 +71,32 @@ export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Pr
         />
       </div>
 
+      {mostrarQuebraPorModulo && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3 text-foreground">Minha média por módulo</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-lg border p-4" style={{ borderColor: "hsl(210,90%,65%)", background: "hsl(210 90% 65% / 0.08)" }}>
+              <span className="text-xs font-bold block" style={{ color: "hsl(210,90%,65%)" }}>CFO I</span>
+              <span className="text-2xl font-extrabold" style={{ color: "hsl(210,90%,65%)" }}>
+                {cfo1Stats.dados?.minha_media != null ? cfo1Stats.dados.minha_media.toFixed(4) : "—"}
+              </span>
+            </div>
+            <div className="rounded-lg border p-4" style={{ borderColor: "hsl(140,70%,50%)", background: "hsl(140 70% 50% / 0.08)" }}>
+              <span className="text-xs font-bold block" style={{ color: "hsl(140,70%,50%)" }}>CFO II</span>
+              <span className="text-2xl font-extrabold" style={{ color: "hsl(140,70%,50%)" }}>
+                {cfo2Stats.dados?.minha_media != null ? cfo2Stats.dados.minha_media.toFixed(4) : "—"}
+              </span>
+            </div>
+            <div className="rounded-lg border p-4" style={{ borderColor: "hsl(43,96%,56%)", background: "hsl(43 96% 56% / 0.08)" }}>
+              <span className="text-xs font-bold block" style={{ color: "hsl(43,96%,56%)" }}>CFO III</span>
+              <span className="text-2xl font-extrabold" style={{ color: "hsl(43,96%,56%)" }}>
+                {cfo3Stats.dados?.minha_media != null ? cfo3Stats.dados.minha_media.toFixed(4) : "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {mostrarNotas && (
         <Card className="border-primary/30">
           <CardHeader>
@@ -76,7 +108,7 @@ export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Pr
                 <TableHeader>
                   <TableRow>
                     <TableHead>Matéria</TableHead>
-                    <TableHead>VC</TableHead>
+                    <TableHead>VC (todas as verificações)</TableHead>
                     <TableHead>VF</TableHead>
                     <TableHead>Nota final</TableHead>
                   </TableRow>
@@ -85,9 +117,11 @@ export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Pr
                   {rows.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.materia}</TableCell>
-                      <TableCell>{r.vc ?? "—"}</TableCell>
+                      <TableCell>
+                        {r.vc_lista && r.vc_lista.length > 0 ? r.vc_lista.join(" , ") : "—"}
+                      </TableCell>
                       <TableCell>{r.vf ?? "—"}</TableCell>
-                      <TableCell>{r.nota_final ?? "—"}</TableCell>
+                      <TableCell className="font-semibold">{r.nota_final ?? "—"}</TableCell>
                     </TableRow>
                   ))}
                   {rows.length === 0 && (

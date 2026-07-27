@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useConfiguracaoTurma } from "@/hooks/useConfiguracaoTurma";
+import { useConfiguracaoTurma } from "@/contexts/ConfiguracaoTurmaContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

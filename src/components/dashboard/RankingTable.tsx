@@ -40,9 +40,18 @@ interface RankingTableProps {
   onStudentClick?: (student: DetailedStudent) => void;
   kpis?: ReportKPIs;
   subjectProgress?: ReportSubjectProgress;
+  // "modulo": página de um módulo só (CFO I/II/III) — mostra Rank/Nome/Média/Classificação.
+  // "geral" (padrão): Classificação Geral — mostra o detalhamento CFO I/II/III + Média Final.
+  modo?: "modulo" | "geral";
 }
 
-export const RankingTable = ({ students, onStudentClick, kpis, subjectProgress }: RankingTableProps) => {
+function badgeClassificacao(media: number) {
+  if (media >= 9.5) return <Badge className="bg-success text-success-foreground">Excelente</Badge>;
+  if (media >= 9.0) return <Badge variant="secondary">Bom</Badge>;
+  return <Badge variant="destructive">Regular</Badge>;
+}
+
+export const RankingTable = ({ students, onStudentClick, kpis, subjectProgress, modo = "geral" }: RankingTableProps) => {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -168,10 +177,17 @@ export const RankingTable = ({ students, onStudentClick, kpis, subjectProgress }
               <TableRow>
                 <TableHead className="w-16 text-white font-extrabold text-base">Rank</TableHead>
                 <TableHead className="text-white font-extrabold text-base">Nome</TableHead>
-                <TableHead className="text-center font-extrabold text-base text-[hsl(220,80%,60%)]">CFO I</TableHead>
-                <TableHead className="text-center font-extrabold text-base text-[hsl(140,60%,45%)]">CFO II</TableHead>
-                <TableHead className="text-center font-extrabold text-base text-primary">CFO III</TableHead>
+                {modo === "geral" && (
+                  <>
+                    <TableHead className="text-center font-extrabold text-base text-[hsl(220,80%,60%)]">CFO I</TableHead>
+                    <TableHead className="text-center font-extrabold text-base text-[hsl(140,60%,45%)]">CFO II</TableHead>
+                    <TableHead className="text-center font-extrabold text-base text-primary">CFO III</TableHead>
+                  </>
+                )}
                 <TableHead className="text-center font-extrabold text-base text-primary">Média Final</TableHead>
+                {modo === "modulo" && (
+                  <TableHead className="text-center font-extrabold text-base text-primary">Classificação</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -189,18 +205,25 @@ export const RankingTable = ({ students, onStudentClick, kpis, subjectProgress }
                         <TableCell className="font-medium">
                           {student.nome}
                         </TableCell>
-                        <TableCell className="text-center font-bold text-base text-[hsl(220,80%,60%)]">
-                          {student.cfoAverages?.cfoI?.toFixed(4) ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-center font-bold text-base text-[hsl(140,60%,45%)]">
-                          {student.cfoAverages?.cfoII?.toFixed(4) ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-center font-bold text-base text-primary">
-                          {student.cfoAverages?.cfoIII?.toFixed(4) ?? "—"}
-                        </TableCell>
+                        {modo === "geral" && (
+                          <>
+                            <TableCell className="text-center font-bold text-base text-[hsl(220,80%,60%)]">
+                              {student.cfoAverages?.cfoI?.toFixed(4) ?? "—"}
+                            </TableCell>
+                            <TableCell className="text-center font-bold text-base text-[hsl(140,60%,45%)]">
+                              {student.cfoAverages?.cfoII?.toFixed(4) ?? "—"}
+                            </TableCell>
+                            <TableCell className="text-center font-bold text-base text-primary">
+                              {student.cfoAverages?.cfoIII?.toFixed(4) ?? "—"}
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell className="text-center font-extrabold text-base text-primary">
                           {student.mediaFinal.toFixed(4)}
                         </TableCell>
+                        {modo === "modulo" && (
+                          <TableCell className="text-center">{badgeClassificacao(student.mediaFinal)}</TableCell>
+                        )}
                       </TableRow>
                     </TooltipTrigger>
                     <TooltipContent side="left" className="max-w-md">

@@ -12,7 +12,7 @@ import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
 import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/hooks/useConfiguracaoTurma";
+import { useConfiguracaoTurma } from "@/contexts/ConfiguracaoTurmaContext";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
 import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, BookOpen, Loader2 } from "lucide-react";
@@ -119,7 +119,7 @@ const ClassificacaoGeral = () => {
 
   if (!mostrarVisaoCompleta) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background tema-geral">
         {header}
         <ResumoIndividualModulo tabela="geral" tituloModulo="Classificação Geral" />
       </div>
@@ -128,7 +128,7 @@ const ClassificacaoGeral = () => {
 
   if (loading && students.length === 0) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background tema-geral">
         {header}
         <div className="flex items-center justify-center py-24">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -138,7 +138,7 @@ const ClassificacaoGeral = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background tema-geral">
       {header}
 
       <main className="container mx-auto px-4 py-8 space-y-8">

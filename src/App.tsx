@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ConfiguracaoTurmaProvider } from "@/contexts/ConfiguracaoTurmaContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 
@@ -42,7 +43,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
+      <ConfiguracaoTurmaProvider>
+        <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -121,6 +123,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+      </ConfiguracaoTurmaProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
