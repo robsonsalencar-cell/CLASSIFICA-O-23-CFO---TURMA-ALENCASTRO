@@ -76,19 +76,49 @@ export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Pr
           <h2 className="text-lg font-semibold mb-3 text-foreground">Minha média por módulo</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-lg border p-4" style={{ borderColor: "hsl(210,90%,65%)", background: "hsl(210 90% 65% / 0.08)" }}>
-              <span className="text-xs font-bold block" style={{ color: "hsl(210,90%,65%)" }}>CFO I</span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold" style={{ color: "hsl(210,90%,65%)" }}>CFO I</span>
+                {cfo1Stats.dados?.minha_posicao != null && (
+                  <span
+                    className="text-xs font-extrabold px-2 py-0.5 rounded-full whitespace-nowrap"
+                    style={{ color: "hsl(210,90%,65%)", border: "1px solid hsl(210,90%,65%)" }}
+                  >
+                    {cfo1Stats.dados.minha_posicao}º lugar
+                  </span>
+                )}
+              </div>
               <span className="text-2xl font-extrabold" style={{ color: "hsl(210,90%,65%)" }}>
                 {cfo1Stats.dados?.minha_media != null ? cfo1Stats.dados.minha_media.toFixed(4) : "—"}
               </span>
             </div>
             <div className="rounded-lg border p-4" style={{ borderColor: "hsl(140,70%,50%)", background: "hsl(140 70% 50% / 0.08)" }}>
-              <span className="text-xs font-bold block" style={{ color: "hsl(140,70%,50%)" }}>CFO II</span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold" style={{ color: "hsl(140,70%,50%)" }}>CFO II</span>
+                {cfo2Stats.dados?.minha_posicao != null && (
+                  <span
+                    className="text-xs font-extrabold px-2 py-0.5 rounded-full whitespace-nowrap"
+                    style={{ color: "hsl(140,70%,50%)", border: "1px solid hsl(140,70%,50%)" }}
+                  >
+                    {cfo2Stats.dados.minha_posicao}º lugar
+                  </span>
+                )}
+              </div>
               <span className="text-2xl font-extrabold" style={{ color: "hsl(140,70%,50%)" }}>
                 {cfo2Stats.dados?.minha_media != null ? cfo2Stats.dados.minha_media.toFixed(4) : "—"}
               </span>
             </div>
             <div className="rounded-lg border p-4" style={{ borderColor: "hsl(43,96%,56%)", background: "hsl(43 96% 56% / 0.08)" }}>
-              <span className="text-xs font-bold block" style={{ color: "hsl(43,96%,56%)" }}>CFO III</span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold" style={{ color: "hsl(43,96%,56%)" }}>CFO III</span>
+                {cfo3Stats.dados?.minha_posicao != null && (
+                  <span
+                    className="text-xs font-extrabold px-2 py-0.5 rounded-full whitespace-nowrap"
+                    style={{ color: "hsl(43,96%,56%)", border: "1px solid hsl(43,96%,56%)" }}
+                  >
+                    {cfo3Stats.dados.minha_posicao}º lugar
+                  </span>
+                )}
+              </div>
               <span className="text-2xl font-extrabold" style={{ color: "hsl(43,96%,56%)" }}>
                 {cfo3Stats.dados?.minha_media != null ? cfo3Stats.dados.minha_media.toFixed(4) : "—"}
               </span>

@@ -18,8 +18,15 @@ const CAMPOS_LEGADOS_ZERADOS: Omit<Student, "rank" | "nome" | "mediaFinal"> = {
   direitoAdministrativo: 0, aph: 0, tiroPolicial: 0,
 };
 
+export interface DetalheMateria {
+  nota_final: number | null;
+  vc_lista: number[];
+  vf: number | null;
+}
+
 export interface AlunoModulo extends DetailedStudent {
   aluno_id: string;
+  gradesDetalhado: Record<string, DetalheMateria>;
 }
 
 /**
@@ -33,18 +40,27 @@ export function useAlunosModulo(tabela: TabelaModulo, listaMaterias: string[]) {
   const { rows, loading, error, refetch, salvarNota, excluirNota } = useNotasModulo(tabela);
 
   const students = useMemo<AlunoModulo[]>(() => {
-    const porAluno = new Map<string, { nome: string; grades: Record<string, number> }>();
+    const porAluno = new Map<
+      string,
+      { nome: string; grades: Record<string, number>; detalhado: Record<string, DetalheMateria> }
+    >();
 
     for (const row of rows) {
       if (!porAluno.has(row.aluno_id)) {
-        porAluno.set(row.aluno_id, { nome: row.aluno_nome ?? "—", grades: {} });
+        porAluno.set(row.aluno_id, { nome: row.aluno_nome ?? "—", grades: {}, detalhado: {} });
       }
+      const entrada = porAluno.get(row.aluno_id)!;
       if (row.nota_final !== null) {
-        porAluno.get(row.aluno_id)!.grades[row.materia] = row.nota_final;
+        entrada.grades[row.materia] = row.nota_final;
       }
+      entrada.detalhado[row.materia] = {
+        nota_final: row.nota_final,
+        vc_lista: row.vc_lista ?? [],
+        vf: row.vf,
+      };
     }
 
-    const provisorio = Array.from(porAluno.entries()).map(([alunoId, { nome, grades }]) => {
+    const provisorio = Array.from(porAluno.entries()).map(([alunoId, { nome, grades, detalhado }]) => {
       const valores = Object.values(grades);
       const mediaFinal = valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
 
@@ -55,6 +71,7 @@ export function useAlunosModulo(tabela: TabelaModulo, listaMaterias: string[]) {
         mediaFinal,
         rank: 0,
         grades,
+        gradesDetalhado: detalhado,
       } as AlunoModulo;
     });
 

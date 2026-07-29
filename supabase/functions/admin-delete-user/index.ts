@@ -77,6 +77,8 @@ Deno.serve(async (req) => {
 
     // Exclui a conta de autenticação — o perfil e todas as notas são removidos
     // automaticamente por CASCADE (ver schema.sql).
+    const { data: antes } = await adminClient.from("profiles").select("*").eq("id", user_id).single();
+
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user_id);
     if (deleteError) {
       return new Response(JSON.stringify({ error: deleteError.message }), {
@@ -84,6 +86,15 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    await adminClient.rpc("registrar_auditoria_manual", {
+      p_tabela: "profiles",
+      p_operacao: "DELETE",
+      p_registro_id: user_id,
+      p_ator_id: caller.id,
+      p_dados_antigos: antes ?? null,
+      p_dados_novos: null,
+    });
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

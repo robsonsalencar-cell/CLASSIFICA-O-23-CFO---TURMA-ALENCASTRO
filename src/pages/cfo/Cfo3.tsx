@@ -13,7 +13,7 @@ import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { useAlunosModulo } from "@/hooks/useAlunosModulo";
 import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/contexts/ConfiguracaoTurmaContext";
+import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
 import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, RefreshCw, BookOpen, Loader2 } from "lucide-react";
@@ -64,7 +64,7 @@ const Cfo3 = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-success/10 blur-xl opacity-30 -z-10"></div>
             </div>
           </div>
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-success to-warning bg-clip-text text-transparent mb-3 ">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-success to-warning bg-clip-text text-transparent mb-3 ">
             Classificação – {config.nome_turma} III
           </h1>
           <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary via-success to-warning bg-clip-text text-transparent">
@@ -268,6 +268,8 @@ const Cfo3 = () => {
           setIsModalOpen(false);
           setSelectedStudent(null);
         }}
+        totalStudents={students.length}
+        tituloModulo="CFO III"
       />
     </div>
   );

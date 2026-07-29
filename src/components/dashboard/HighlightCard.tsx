@@ -54,29 +54,18 @@ export const HighlightCard = ({
   };
 
   const getTextColor = () => {
-    if (variant === "top") {
-      switch (rank) {
-        case 1: return "text-primary";
-        case 2: return "text-success";
-        case 3: return "text-warning";
-        default: return "text-foreground";
-      }
-    }
-    return "text-danger";
+    // Os 3 primeiros lugares usam a MESMA cor (a do tema do módulo), não uma
+    // cor diferente por posição — assim acompanha CFO I azul / CFO II verde /
+    // CFO III dourado corretamente.
+    if (variant === "top") return "text-primary";
+    // Carroceiros: nome e média em branco/neutro (só o ícone e o selo
+    // continuam vermelhos, para não perder o alerta visual)
+    return "text-foreground";
   };
 
   const getCardStyle = () => {
     if (variant === "top") {
-      switch (rank) {
-        case 1:
-          return "border-primary/30 bg-gradient-to-br from-primary/20 to-primary/10 hover:shadow-lg hover:border-primary/40 transition-all duration-300";
-        case 2:
-          return "border-success/30 bg-gradient-to-br from-success/20 to-success/10 hover:shadow-lg hover:border-success/40 transition-all duration-300";
-        case 3:
-          return "border-warning/30 bg-gradient-to-br from-warning/20 to-warning/10 hover:shadow-lg hover:border-warning/40 transition-all duration-300";
-        default:
-          return "border-card-border bg-gradient-card hover:shadow-md transition-all duration-300";
-      }
+      return "border-primary/30 bg-gradient-to-br from-primary/20 to-primary/10 hover:shadow-lg hover:border-primary/40 transition-all duration-300";
     }
     return "border-danger/30 bg-gradient-to-br from-danger/20 to-danger/10 hover:shadow-lg hover:border-danger/40 transition-all duration-300";
   };

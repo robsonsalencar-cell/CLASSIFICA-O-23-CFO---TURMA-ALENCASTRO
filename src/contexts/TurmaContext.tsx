@@ -1,0 +1,149 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
+
+export interface Turma {
+  id: string;
+  nome_turma: string;
+  subtitulo_turma: string;
+  brasao_url: string | null;
+  created_at: string;
+}
+
+interface TurmaContextValue {
+  turmas: Turma[];
+  turmaAtualId: string | null;
+  turmaAtual: Turma | null;
+  setTurmaAtualId: (id: string) => void;
+  loading: boolean;
+  refetch: () => Promise<void>;
+  criarTurma: (nome_turma: string, subtitulo_turma: string) => Promise<{ error: string | null; id: string | null }>;
+  atualizarTurma: (id: string, nome_turma: string, subtitulo_turma: string) => Promise<{ error: string | null }>;
+  enviarBrasaoTurma: (id: string, arquivo: File) => Promise<{ error: string | null }>;
+}
+
+const TURMA_PADRAO: Turma = {
+  id: "",
+  nome_turma: "23º CFO",
+  subtitulo_turma: "Turma Alencastro",
+  brasao_url: "/lovable-uploads/brasao-novo.png",
+  created_at: new Date().toISOString(),
+};
+
+const TurmaContext = createContext<TurmaContextValue | undefined>(undefined);
+
+export function TurmaProvider({ children }: { children: ReactNode }) {
+  const { profile, isAdmin } = useAuth();
+  const [turmas, setTurmas] = useState<Turma[]>([]);
+  const [turmaAtualId, setTurmaAtualIdState] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [escolhaManualAdmin, setEscolhaManualAdmin] = useState<string | null>(null);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("turmas").select("*").order("created_at", { ascending: true });
+    setTurmas((data as Turma[]) ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  // Aluno comum: sempre a própria turma. Admin: a que ele escolheu no seletor
+  // (por padrão, a primeira/mais antiga cadastrada).
+  useEffect(() => {
+    if (!isAdmin && profile?.turma_id) {
+      setTurmaAtualIdState(profile.turma_id);
+    } else if (isAdmin) {
+      setTurmaAtualIdState(escolhaManualAdmin ?? turmas[0]?.id ?? null);
+    }
+  }, [isAdmin, profile, turmas, escolhaManualAdmin]);
+
+  function setTurmaAtualId(id: string) {
+    setEscolhaManualAdmin(id);
+    setTurmaAtualIdState(id);
+  }
+
+  const turmaAtual = useMemo(
+    () => turmas.find((t) => t.id === turmaAtualId) ?? null,
+    [turmas, turmaAtualId]
+  );
+
+  async function criarTurma(nome_turma: string, subtitulo_turma: string) {
+    const { data, error } = await supabase
+      .from("turmas")
+      .insert({ nome_turma, subtitulo_turma })
+      .select()
+      .single();
+    if (!error) await carregar();
+    return { error: error?.message ?? null, id: data?.id ?? null };
+  }
+
+  async function atualizarTurma(id: string, nome_turma: string, subtitulo_turma: string) {
+    const { error } = await supabase.from("turmas").update({ nome_turma, subtitulo_turma }).eq("id", id);
+    if (!error) await carregar();
+    return { error: error?.message ?? null };
+  }
+
+  async function enviarBrasaoTurma(id: string, arquivo: File) {
+    const extensao = arquivo.name.split(".").pop();
+    const caminho = `brasao-${id}-${Date.now()}.${extensao}`;
+
+    const { error: uploadError } = await supabase.storage.from("brasoes").upload(caminho, arquivo, { upsert: true });
+    if (uploadError) return { error: uploadError.message };
+
+    const { data: publicUrlData } = supabase.storage.from("brasoes").getPublicUrl(caminho);
+
+    const { error: updateError } = await supabase.from("turmas").update({ brasao_url: publicUrlData.publicUrl }).eq("id", id);
+    if (!updateError) await carregar();
+    return { error: updateError?.message ?? null };
+  }
+
+  return (
+    <TurmaContext.Provider
+      value={{
+        turmas,
+        turmaAtualId,
+        turmaAtual,
+        setTurmaAtualId,
+        loading,
+        refetch: carregar,
+        criarTurma,
+        atualizarTurma,
+        enviarBrasaoTurma,
+      }}
+    >
+      {children}
+    </TurmaContext.Provider>
+  );
+}
+
+export function useTurma() {
+  const ctx = useContext(TurmaContext);
+  if (!ctx) throw new Error("useTurma precisa estar dentro de <TurmaProvider>");
+  return ctx;
+}
+
+/**
+ * Compatibilidade com o código já existente que chama useConfiguracaoTurma()
+ * esperando {config, loading, refetch, salvarTexto, enviarBrasao}. Por baixo,
+ * agora opera sobre a TURMA EM FOCO (turmaAtual), não mais uma config única.
+ */
+export function useConfiguracaoTurma() {
+  const { turmaAtual, turmaAtualId, loading, refetch, atualizarTurma, enviarBrasaoTurma } = useTurma();
+
+  const config = turmaAtual ?? TURMA_PADRAO;
+
+  async function salvarTexto(nome_turma: string, subtitulo_turma: string) {
+    if (!turmaAtualId) return { error: "Nenhuma turma selecionada." };
+    return atualizarTurma(turmaAtualId, nome_turma, subtitulo_turma);
+  }
+
+  async function enviarBrasao(arquivo: File) {
+    if (!turmaAtualId) return { error: "Nenhuma turma selecionada." };
+    return enviarBrasaoTurma(turmaAtualId, arquivo);
+  }
+
+  return { config, loading, refetch, salvarTexto, enviarBrasao };
+}

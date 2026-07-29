@@ -16,6 +16,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Save, Trash2, PlusCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useTurma } from "@/contexts/TurmaContext";
 
 interface AlunoOption {
   id: string;
@@ -30,6 +31,7 @@ interface Props {
 
 export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props) {
   const { rows, loading, error, salvarNota, excluirNota } = useNotasModulo(tabela);
+  const { turmaAtualId } = useTurma();
   const [alunos, setAlunos] = useState<AlunoOption[]>([]);
   const [edits, setEdits] = useState<Record<string, { vc: string; vf: string; nota_final: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -43,13 +45,15 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
   const [salvandoNovo, setSalvandoNovo] = useState(false);
 
   useEffect(() => {
+    if (!turmaAtualId) return;
     supabase
       .from("profiles")
       .select("id, nome_completo")
       .eq("role", "aluno")
+      .eq("turma_id", turmaAtualId)
       .order("nome_completo")
       .then(({ data }) => setAlunos(data ?? []));
-  }, []);
+  }, [turmaAtualId]);
 
   const novaFinalCalculada = calcularNotaFinalMulti(
     parseListaVc(novoVc),

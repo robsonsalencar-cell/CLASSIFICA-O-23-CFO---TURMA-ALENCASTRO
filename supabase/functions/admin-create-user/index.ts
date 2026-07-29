@@ -64,10 +64,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, nome_completo, cpf, senha_provisoria, role } = await req.json();
+    const { email, nome_completo, cpf, senha_provisoria, role, turma_id } = await req.json();
 
-    if (!email || !nome_completo || !senha_provisoria) {
-      return new Response(JSON.stringify({ error: "email, nome_completo e senha_provisoria são obrigatórios." }), {
+    if (!email || !nome_completo || !senha_provisoria || !turma_id) {
+      return new Response(JSON.stringify({ error: "email, nome_completo, senha_provisoria e turma_id são obrigatórios." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
         nome_completo,
         cpf: cpf ?? null,
         role: role === "admin" ? "admin" : "aluno",
+        turma_id,
       },
     });
 
@@ -90,6 +91,29 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // O profile é criado automaticamente pelo trigger on_auth_user_created (ver schema.sql);
+    // aqui só precisamos gravar o turma_id, que o trigger não conhece.
+    const { error: turmaError } = await adminClient
+      .from("profiles")
+      .update({ turma_id })
+      .eq("id", created.user.id);
+
+    if (turmaError) {
+      return new Response(JSON.stringify({ error: turmaError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    await adminClient.rpc("registrar_auditoria_manual", {
+      p_tabela: "profiles",
+      p_operacao: "INSERT",
+      p_registro_id: created.user.id,
+      p_ator_id: caller.id,
+      p_dados_antigos: null,
+      p_dados_novos: { nome_completo, email, role: role ?? "aluno", turma_id },
+    });
 
     // O profile é criado automaticamente pelo trigger on_auth_user_created (ver schema.sql)
     return new Response(JSON.stringify({ user: created.user }), {

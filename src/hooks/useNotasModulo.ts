@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth, useEffectiveAlunoId } from "@/contexts/AuthContext";
+import { useTurma } from "@/contexts/TurmaContext";
 
 export type TabelaModulo = "notas_cfo1" | "notas_cfo2" | "notas_cfo3";
 
@@ -20,12 +21,13 @@ export interface NotaRow {
 /**
  * Lê as notas de um módulo.
  * - Aluno comum: RLS já garante que só vê as próprias linhas.
- * - Admin em "Visão Geral": vê todos os alunos.
+ * - Admin em "Visão Geral": vê todos os alunos DA TURMA EM FOCO.
  * - Admin "simulando" um aluno: vê só as linhas daquele aluno.
  */
 export function useNotasModulo(tabela: TabelaModulo) {
   const { isAdmin } = useAuth();
   const effectiveAlunoId = useEffectiveAlunoId();
+  const { turmaAtualId } = useTurma();
   const [rows, setRows] = useState<NotaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +40,15 @@ export function useNotasModulo(tabela: TabelaModulo) {
       .from(tabela)
       .select(
         isAdmin
-          ? "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at, profiles!inner(nome_completo)"
+          ? "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at, profiles!inner(nome_completo, turma_id)"
           : "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at"
       );
 
     if (effectiveAlunoId) {
       query = query.eq("aluno_id", effectiveAlunoId);
+    } else if (isAdmin && turmaAtualId) {
+      // visão geral do admin: só a turma selecionada no seletor
+      query = query.eq("profiles.turma_id", turmaAtualId);
     }
 
     const { data, error } = await query.order("materia", { ascending: true });
@@ -59,7 +64,7 @@ export function useNotasModulo(tabela: TabelaModulo) {
       setRows(mapped);
     }
     setLoading(false);
-  }, [tabela, isAdmin, effectiveAlunoId]);
+  }, [tabela, isAdmin, effectiveAlunoId, turmaAtualId]);
 
   useEffect(() => {
     fetchData();

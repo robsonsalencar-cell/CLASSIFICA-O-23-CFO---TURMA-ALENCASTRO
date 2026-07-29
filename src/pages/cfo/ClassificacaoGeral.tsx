@@ -12,7 +12,7 @@ import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
 import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/contexts/ConfiguracaoTurmaContext";
+import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
 import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, BookOpen, Loader2 } from "lucide-react";
@@ -38,18 +38,28 @@ const ClassificacaoGeral = () => {
   const students = useMemo<DetailedStudent[]>(() => {
     const porAlunoId = new Map<
       string,
-      { nome: string; cfoI?: number; cfoII?: number; cfoIII?: number }
+      {
+        nome: string;
+        cfoI?: number;
+        cfoII?: number;
+        cfoIII?: number;
+        gradesDetalhado: Record<string, { nota_final: number | null; vc_lista: number[]; vf: number | null }>;
+      }
     >();
 
-    for (const s of cfo1.students) {
-      porAlunoId.set(s.aluno_id, { ...(porAlunoId.get(s.aluno_id) ?? { nome: s.nome }), cfoI: s.mediaFinal });
+    function acumular(lista: typeof cfo1.students, campo: "cfoI" | "cfoII" | "cfoIII", prefixo: string) {
+      for (const s of lista) {
+        const atual = porAlunoId.get(s.aluno_id) ?? { nome: s.nome, gradesDetalhado: {} };
+        atual[campo] = s.mediaFinal;
+        for (const [materia, d] of Object.entries(s.gradesDetalhado)) {
+          atual.gradesDetalhado[`${materia} (${prefixo})`] = d;
+        }
+        porAlunoId.set(s.aluno_id, atual);
+      }
     }
-    for (const s of cfo2.students) {
-      porAlunoId.set(s.aluno_id, { ...(porAlunoId.get(s.aluno_id) ?? { nome: s.nome }), cfoII: s.mediaFinal });
-    }
-    for (const s of cfo3.students) {
-      porAlunoId.set(s.aluno_id, { ...(porAlunoId.get(s.aluno_id) ?? { nome: s.nome }), cfoIII: s.mediaFinal });
-    }
+    acumular(cfo1.students, "cfoI", "CFO I");
+    acumular(cfo2.students, "cfoII", "CFO II");
+    acumular(cfo3.students, "cfoIII", "CFO III");
 
     const lista = Array.from(porAlunoId.values()).map((s) => {
       const medias = [s.cfoI, s.cfoII, s.cfoIII].filter((v): v is number => typeof v === "number");
@@ -59,6 +69,7 @@ const ClassificacaoGeral = () => {
         mediaFinal,
         rank: 0,
         cfoAverages: { cfoI: s.cfoI, cfoII: s.cfoII, cfoIII: s.cfoIII },
+        gradesDetalhado: s.gradesDetalhado,
       } as unknown as DetailedStudent;
     });
 
@@ -101,7 +112,7 @@ const ClassificacaoGeral = () => {
 
           <div className="relative inline-block mb-4">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 blur-lg -z-10"></div>
-            <p className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-wider px-8 py-3 border-y-2 border-primary/60 bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent uppercase">
+            <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-wider px-8 py-3 border-y-2 border-primary/60 bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent uppercase">
               CLASSIFICAÇÃO FINAL – {config.nome_turma}
             </p>
           </div>
@@ -294,6 +305,8 @@ const ClassificacaoGeral = () => {
           setIsModalOpen(false);
           setSelectedStudent(null);
         }}
+        totalStudents={students.length}
+        tituloModulo="Classificação Geral"
       />
 
       <div className="bg-[hsl(220,50%,10%)] border-t border-primary/20 text-center py-2">

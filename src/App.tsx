@@ -6,15 +6,17 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ConfiguracaoTurmaProvider } from "@/contexts/ConfiguracaoTurmaContext";
+import { TurmaProvider } from "@/contexts/TurmaContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 
 import Login from "@/pages/auth/Login";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
+import TrocaSenhaObrigatoria from "@/pages/auth/TrocaSenhaObrigatoria";
 import Perfil from "@/pages/Perfil";
 import Admin from "@/pages/admin/Admin";
+import { AdminAuditoria } from "@/pages/admin/AdminAuditoria";
 import NotFound from "@/pages/NotFound";
 
 // Substitua pelos Index.tsx de cada módulo já adaptados para usar
@@ -43,7 +45,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <ConfiguracaoTurmaProvider>
+      <TurmaProvider>
         <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -53,6 +55,14 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/esqueci-senha" element={<ForgotPassword />} />
             <Route path="/redefinir-senha" element={<ResetPassword />} />
+            <Route
+              path="/trocar-senha-obrigatoria"
+              element={
+                <ProtectedRoute>
+                  <TrocaSenhaObrigatoria />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Rotas protegidas (exigem login) */}
             <Route
@@ -117,13 +127,23 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/admin/auditoria"
+              element={
+                <ProtectedRoute developerOnly>
+                  <AppShell>
+                    <AdminAuditoria />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
-      </ConfiguracaoTurmaProvider>
+      </TurmaProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

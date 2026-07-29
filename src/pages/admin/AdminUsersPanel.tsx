@@ -19,18 +19,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, UserPlus, Users, Pencil, Save, X, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useTurma } from "@/contexts/TurmaContext";
 
 interface EdicaoState {
   nome_completo: string;
   email: string;
   cpf: string;
-  role: "aluno" | "admin";
+  role: "aluno" | "admin" | "desenvolvedor";
   nova_senha: string;
 }
 
 export function AdminUsersPanel() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { turmaAtualId, turmaAtual } = useTurma();
 
   // formulário de cadastro
   const [nome, setNome] = useState("");
@@ -47,15 +50,20 @@ export function AdminUsersPanel() {
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   async function carregarPerfis() {
+    if (!turmaAtualId) return;
     setLoading(true);
-    const { data } = await supabase.from("profiles").select("*").order("nome_completo");
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("turma_id", turmaAtualId)
+      .order("nome_completo");
     setProfiles(data ?? []);
     setLoading(false);
   }
 
   useEffect(() => {
     carregarPerfis();
-  }, []);
+  }, [turmaAtualId]);
 
   function gerarSenhaProvisoria() {
     const s = Math.random().toString(36).slice(-8) + "A1!";
@@ -67,9 +75,13 @@ export function AdminUsersPanel() {
       toast({ title: "Preencha nome, e-mail e senha provisória", variant: "destructive" });
       return;
     }
+    if (!turmaAtualId) {
+      toast({ title: "Nenhuma turma selecionada", variant: "destructive" });
+      return;
+    }
     setCriando(true);
     const { data, error } = await supabase.functions.invoke("admin-create-user", {
-      body: { nome_completo: nome, email, cpf: cpf || null, senha_provisoria: senha, role },
+      body: { nome_completo: nome, email, cpf: cpf || null, senha_provisoria: senha, role, turma_id: turmaAtualId },
     });
     setCriando(false);
 
@@ -164,7 +176,7 @@ export function AdminUsersPanel() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-primary" />
-            Cadastrar novo aluno
+            Cadastrar novo aluno {turmaAtual && <span className="text-muted-foreground font-normal text-sm">— {turmaAtual.nome_turma}</span>}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -219,7 +231,7 @@ export function AdminUsersPanel() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="w-5 h-5 text-primary" />
-            Usuários cadastrados ({profiles.length})
+            Usuários cadastrados ({profiles.length}) {turmaAtual && <span className="text-muted-foreground font-normal text-sm">— {turmaAtual.nome_turma}</span>}
           </CardTitle>
         </CardHeader>
         <CardContent>

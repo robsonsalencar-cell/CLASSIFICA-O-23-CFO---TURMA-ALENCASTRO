@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { user_id, nome_completo, email, cpf, role, nova_senha } = await req.json();
+    const { user_id, nome_completo, email, cpf, role, nova_senha, turma_id } = await req.json();
 
     if (!user_id) {
       return new Response(JSON.stringify({ error: "user_id é obrigatório." }), {
@@ -88,8 +88,11 @@ Deno.serve(async (req) => {
     if (email) patch.email = email;
     if (cpf !== undefined) patch.cpf = cpf || null;
     if (role) patch.role = role;
+    if (turma_id) patch.turma_id = turma_id;
 
     if (Object.keys(patch).length > 0) {
+      const { data: antes } = await adminClient.from("profiles").select("*").eq("id", user_id).single();
+
       const { error: profileError } = await adminClient.from("profiles").update(patch).eq("id", user_id);
       if (profileError) {
         return new Response(JSON.stringify({ error: profileError.message }), {
@@ -97,6 +100,15 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      await adminClient.rpc("registrar_auditoria_manual", {
+        p_tabela: "profiles",
+        p_operacao: "UPDATE",
+        p_registro_id: user_id,
+        p_ator_id: caller.id,
+        p_dados_antigos: antes ?? null,
+        p_dados_novos: patch,
+      });
     }
 
     return new Response(JSON.stringify({ success: true }), {

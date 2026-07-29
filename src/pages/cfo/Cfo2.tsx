@@ -13,7 +13,7 @@ import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { useAlunosModulo } from "@/hooks/useAlunosModulo";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/contexts/ConfiguracaoTurmaContext";
+import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
 import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, RefreshCw, BookOpen, Loader2 } from "lucide-react";
@@ -64,7 +64,7 @@ const Cfo2 = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-success/10 blur-xl opacity-30 -z-10"></div>
             </div>
           </div>
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-[hsl(140,70%,60%)] via-[hsl(135,70%,55%)] to-[hsl(130,70%,50%)] bg-clip-text text-transparent mb-3 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-[hsl(140,70%,60%)] via-[hsl(135,70%,55%)] to-[hsl(130,70%,50%)] bg-clip-text text-transparent mb-3 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]">
             Classificação – {config.nome_turma} II
           </h1>
           <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-[hsl(140,70%,55%)] via-[hsl(135,70%,50%)] to-[hsl(130,70%,45%)] bg-clip-text text-transparent">
@@ -268,6 +268,8 @@ const Cfo2 = () => {
           setIsModalOpen(false);
           setSelectedStudent(null);
         }}
+        totalStudents={students.length}
+        tituloModulo="CFO II"
       />
     </div>
   );

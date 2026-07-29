@@ -7,6 +7,8 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   isAdmin: boolean;
+  isDeveloper: boolean;
+  precisaTrocarSenha: boolean;
   loading: boolean;
   // Visão simulada pelo admin (modo "espelhar aluno"). null = vendo tudo/próprio perfil.
   viewingAsAlunoId: string | null;
@@ -72,6 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function updatePassword(newPassword: string) {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (!error && session?.user) {
+      await supabase.from("profiles").update({ senha_trocada: true }).eq("id", session.user.id);
+      await loadProfile(session.user.id);
+    }
     return { error: error?.message ?? null };
   }
 
@@ -79,7 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user: session?.user ?? null,
     profile,
-    isAdmin: profile?.role === "admin",
+    isAdmin: profile?.role === "admin" || profile?.role === "desenvolvedor",
+    isDeveloper: profile?.role === "desenvolvedor",
+    precisaTrocarSenha: profile ? profile.senha_trocada === false : false,
     loading,
     viewingAsAlunoId,
     setViewingAsAlunoId,

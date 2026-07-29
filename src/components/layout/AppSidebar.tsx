@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/contexts/ConfiguracaoTurmaContext";
+import { useConfiguracaoTurma, useTurma } from "@/contexts/TurmaContext";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Sidebar,
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, ShieldCheck, Trophy, KeyRound, LogOut, Eye } from "lucide-react";
+import { LayoutDashboard, ShieldCheck, Trophy, KeyRound, LogOut, Eye, GraduationCap, ScrollText } from "lucide-react";
 
 const modulos = [
   { to: "/cfo1", label: "CFO I", cor: "hsl(210,90%,65%)" },
@@ -34,19 +34,21 @@ const modulos = [
 ];
 
 export function AppSidebar() {
-  const { profile, isAdmin, viewingAsAlunoId, setViewingAsAlunoId, signOut } = useAuth();
+  const { profile, isAdmin, isDeveloper, viewingAsAlunoId, setViewingAsAlunoId, signOut } = useAuth();
   const { config } = useConfiguracaoTurma();
+  const { turmas, turmaAtualId, setTurmaAtualId } = useTurma();
   const [alunos, setAlunos] = useState<{ id: string; nome_completo: string }[]>([]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !turmaAtualId) return;
     supabase
       .from("profiles")
       .select("id, nome_completo")
       .eq("role", "aluno")
+      .eq("turma_id", turmaAtualId)
       .order("nome_completo")
       .then(({ data }) => setAlunos(data ?? []));
-  }, [isAdmin]);
+  }, [isAdmin, turmaAtualId]);
 
   return (
     <Sidebar>
@@ -58,6 +60,25 @@ export function AppSidebar() {
             <p className="text-xs text-muted-foreground">{config.subtitulo_turma}</p>
           </div>
         </div>
+        {isAdmin && turmas.length > 1 && (
+          <div className="mt-3 space-y-1">
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <GraduationCap className="w-3 h-3" /> Turma em foco
+            </p>
+            <Select value={turmaAtualId ?? undefined} onValueChange={setTurmaAtualId}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Selecione a turma" />
+              </SelectTrigger>
+              <SelectContent>
+                {turmas.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.nome_turma}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent>
@@ -97,6 +118,16 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                {isDeveloper && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <NavLink to="/admin/auditoria" className={({ isActive }) => (isActive ? "font-semibold text-primary" : "")}>
+                        <ScrollText className="w-4 h-4" />
+                        <span>Auditoria</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
 
               <div className="px-2 pt-3 space-y-1">
@@ -129,8 +160,8 @@ export function AppSidebar() {
         <div className="flex items-center justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">{profile?.nome_completo}</p>
-            <Badge variant={isAdmin ? "default" : "secondary"} className="text-[10px]">
-              {isAdmin ? "Administrador" : "Aluno"}
+            <Badge variant={isDeveloper ? "default" : isAdmin ? "secondary" : "secondary"} className="text-[10px]">
+              {isDeveloper ? "Desenvolvedor" : isAdmin ? "Administrador" : "Aluno"}
             </Badge>
           </div>
           <Trophy className="w-4 h-4 text-primary shrink-0" />
