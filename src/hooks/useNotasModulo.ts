@@ -40,15 +40,37 @@ export function useNotasModulo(tabela: TabelaModulo) {
       .from(tabela)
       .select(
         isAdmin
-          ? "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at, profiles!inner(nome_completo, turma_id)"
+          ? "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at, profiles(nome_completo)"
           : "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at"
       );
 
     if (effectiveAlunoId) {
       query = query.eq("aluno_id", effectiveAlunoId);
     } else if (isAdmin && turmaAtualId) {
-      // visão geral do admin: só a turma selecionada no seletor
-      query = query.eq("profiles.turma_id", turmaAtualId);
+      // Visão geral do admin: só a turma selecionada no seletor.
+      // Busca primeiro os IDs dos alunos da turma (query simples e confiável),
+      // depois filtra as notas por esses IDs — evita depender de filtro por
+      // coluna de tabela relacionada, que tem comportamento inconsistente
+      // dependendo da versão/configuração do PostgREST.
+      const { data: alunosDaTurma, error: erroAlunos } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("turma_id", turmaAtualId);
+
+      if (erroAlunos) {
+        setError(erroAlunos.message);
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+
+      const ids = (alunosDaTurma ?? []).map((a) => a.id);
+      if (ids.length === 0) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+      query = query.in("aluno_id", ids);
     }
 
     const { data, error } = await query.order("materia", { ascending: true });
