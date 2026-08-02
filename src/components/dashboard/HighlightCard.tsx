@@ -67,7 +67,7 @@ export const HighlightCard = ({
     if (variant === "top") {
       return "border-primary/30 bg-gradient-to-br from-primary/20 to-primary/10 hover:shadow-lg hover:border-primary/40 transition-all duration-300";
     }
-    return "border-danger/30 bg-gradient-to-br from-danger/20 to-danger/10 hover:shadow-lg hover:border-danger/40 transition-all duration-300";
+    return "border-danger/50 bg-gradient-to-br from-danger/30 to-danger/15 hover:shadow-lg hover:border-danger/60 transition-all duration-300";
   };
 
   return (

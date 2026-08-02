@@ -9,6 +9,7 @@ interface KPICardProps {
   variant?: "default" | "success" | "warning" | "danger";
   tooltip?: string;
   icon?: React.ReactNode;
+  onClick?: () => void;
 }
 
 export const KPICard = ({ 
@@ -17,7 +18,8 @@ export const KPICard = ({
   subtitle, 
   variant = "default", 
   tooltip,
-  icon 
+  icon,
+  onClick,
 }: KPICardProps) => {
   const cardVariants = {
     default: "border-card-border",
@@ -41,10 +43,14 @@ export const KPICard = ({
   };
 
   const content = (
-    <Card className={cn(
-      "transition-all duration-200 hover:shadow-md bg-gradient-card",
-      cardVariants[variant]
-    )}>
+    <Card
+      onClick={onClick}
+      className={cn(
+        "transition-all duration-200 hover:shadow-md bg-gradient-card",
+        onClick && "cursor-pointer hover:scale-[1.02] hover:ring-2 hover:ring-primary/40",
+        cardVariants[variant]
+      )}
+    >
       <CardHeader className="pb-2">
         <CardTitle className={cn(
           "text-sm font-medium flex items-center gap-2",

@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 
 export function AdminPersonalizacao() {
   const { config, salvarTexto, enviarBrasao } = useConfiguracaoTurma();
-  const { turmas, turmaAtualId, setTurmaAtualId, criarTurma } = useTurma();
+  const { turmas, turmaAtualId, setTurmaAtualId, criarTurma, atualizarTextoCabecalho } = useTurma();
 
   const [nomeTurma, setNomeTurma] = useState(config.nome_turma);
   const [subtitulo, setSubtitulo] = useState(config.subtitulo_turma);
@@ -17,11 +17,19 @@ export function AdminPersonalizacao() {
   const [enviando, setEnviando] = useState(false);
   const inputArquivoRef = useRef<HTMLInputElement>(null);
 
+  const [tituloPaginaModulo, setTituloPaginaModulo] = useState(config.titulo_pagina_modulo);
+  const [tituloPaginaGeral, setTituloPaginaGeral] = useState(config.titulo_pagina_geral);
+  const [subtituloPagina, setSubtituloPagina] = useState(config.subtitulo_pagina);
+  const [salvandoCabecalho, setSalvandoCabecalho] = useState(false);
+
   // Re-sincroniza os campos sempre que a turma EM FOCO mudar (ex: admin trocou
   // no seletor do menu lateral) — não só na primeira carga.
   useEffect(() => {
     setNomeTurma(config.nome_turma);
     setSubtitulo(config.subtitulo_turma);
+    setTituloPaginaModulo(config.titulo_pagina_modulo);
+    setTituloPaginaGeral(config.titulo_pagina_geral);
+    setSubtituloPagina(config.subtitulo_pagina);
   }, [config.id]);
 
   const [novaTurmaNome, setNovaTurmaNome] = useState("");
@@ -36,6 +44,23 @@ export function AdminPersonalizacao() {
       toast({ title: "Erro ao salvar", description: error, variant: "destructive" });
     } else {
       toast({ title: "Nome da turma atualizado" });
+    }
+  }
+
+  async function handleSalvarCabecalho() {
+    if (!turmaAtualId) return;
+    setSalvandoCabecalho(true);
+    const { error } = await atualizarTextoCabecalho(
+      turmaAtualId,
+      tituloPaginaModulo,
+      tituloPaginaGeral,
+      subtituloPagina
+    );
+    setSalvandoCabecalho(false);
+    if (error) {
+      toast({ title: "Erro ao salvar cabeçalho", description: error, variant: "destructive" });
+    } else {
+      toast({ title: "Cabeçalho das páginas atualizado" });
     }
   }
 
@@ -159,12 +184,63 @@ export function AdminPersonalizacao() {
               />
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Esses dois campos são o rótulo curto usado no menu lateral e na tela de login.
+            Para o texto grande que aparece no topo de cada página, use o card abaixo.
+          </p>
 
           <div className="flex justify-end">
             <Button onClick={handleSalvarTexto} disabled={salvando}>
               {salvando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <Save className="w-4 h-4 mr-2" />
               Salvar nome e subtítulo
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-primary/30">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Palette className="w-5 h-5 text-primary" />
+            Texto do cabeçalho das páginas — {config.nome_turma}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Controle 100% do texto que aparece no topo de cada página (nada fica fixo/travado).
+            Em CFO I, II e III, o número do módulo (" I", " II", " III") é adicionado
+            automaticamente no final do título — não precisa digitar.
+          </p>
+          <div className="space-y-1">
+            <Label>Título — páginas CFO I / II / III (sem o número do módulo)</Label>
+            <Input
+              value={tituloPaginaModulo}
+              onChange={(e) => setTituloPaginaModulo(e.target.value)}
+              placeholder="ex: Classificação – 23º CFO"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Título — página Classificação Geral (texto completo)</Label>
+            <Input
+              value={tituloPaginaGeral}
+              onChange={(e) => setTituloPaginaGeral(e.target.value)}
+              placeholder="ex: CLASSIFICAÇÃO FINAL – 23º CFO"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Subtítulo (usado em todas as páginas, texto completo)</Label>
+            <Input
+              value={subtituloPagina}
+              onChange={(e) => setSubtituloPagina(e.target.value)}
+              placeholder="ex: Painel de desempenho dos alunos oficiais - Turma Alencastro"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleSalvarCabecalho} disabled={salvandoCabecalho}>
+              {salvandoCabecalho && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <Save className="w-4 h-4 mr-2" />
+              Salvar cabeçalho
             </Button>
           </div>
         </CardContent>

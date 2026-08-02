@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { HighlightCard } from "@/components/dashboard/HighlightCard";
@@ -50,6 +50,20 @@ const Cfo3 = () => {
     setIsModalOpen(true);
   };
 
+  // Indicadores clicáveis: maior/menor média abrem o modal do aluno;
+  // matérias/turma rolam até a seção correspondente.
+  const progressoRef = useRef<HTMLDivElement>(null);
+  const rankingRef = useRef<HTMLDivElement>(null);
+
+  function handleClickAluno(nome: string) {
+    const aluno = students.find((s) => s.nome === nome);
+    if (aluno) handleStudentClick(aluno);
+  }
+
+  function scrollPara(ref: React.RefObject<HTMLDivElement>) {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   const header = (
     <header className="bg-gradient-to-r from-card/95 via-card-header/95 to-card/95 border-b border-primary/20 shadow-lg">
       <div className="container mx-auto px-4 py-6">
@@ -59,16 +73,16 @@ const Cfo3 = () => {
               <img
                 src={config.brasao_url ?? "/lovable-uploads/brasao-novo.png"}
                 alt={config.nome_turma}
-                className="w-40 h-40 md:w-48 md:h-48 object-contain drop-shadow-2xl"
+                className="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 object-contain drop-shadow-2xl"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-success/10 blur-xl opacity-30 -z-10"></div>
             </div>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-success to-warning bg-clip-text text-transparent mb-3 ">
-            Classificação – {config.nome_turma} III
+            {config.titulo_pagina_modulo} III
           </h1>
           <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary via-success to-warning bg-clip-text text-transparent">
-            Painel de desempenho dos alunos oficiais - {config.subtitulo_turma}
+            {config.subtitulo_pagina}
           </p>
 
           <div className="mt-4 flex justify-center items-center gap-4 flex-wrap">
@@ -97,7 +111,7 @@ const Cfo3 = () => {
 
   if (!mostrarVisaoCompleta) {
     return (
-      <div className="min-h-screen bg-background tema-cfo3">
+      <div className="min-h-screen bg-background tema-cfo1">
         {header}
         <ResumoIndividualModulo tabela="notas_cfo3" tabelaNotas="notas_cfo3" tituloModulo="CFO III" />
       </div>
@@ -106,7 +120,7 @@ const Cfo3 = () => {
 
   if (loading && students.length === 0) {
     return (
-      <div className="min-h-screen bg-background tema-cfo3">
+      <div className="min-h-screen bg-background tema-cfo1">
         {header}
         <div className="flex items-center justify-center py-24">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -116,7 +130,7 @@ const Cfo3 = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background tema-cfo3">
+    <div className="min-h-screen bg-background tema-cfo1">
       {header}
 
       <main className="container mx-auto px-4 py-8 space-y-8">
@@ -130,6 +144,7 @@ const Cfo3 = () => {
               variant="success"
               icon={<BookOpen className="w-4 h-4" />}
               tooltip={`${subjectProgress.gradedSubjects} matérias já tiveram notas lançadas de um total de ${subjectProgress.totalSubjects} matérias`}
+              onClick={() => scrollPara(progressoRef)}
             />
             <KPICard
               title="Média da Turma"
@@ -137,6 +152,7 @@ const Cfo3 = () => {
               subtitle={`Desvio-padrão: ${kpis.desvioPadrao.toFixed(4)}`}
               variant="default"
               icon={<Target className="w-4 h-4" />}
+              onClick={() => scrollPara(rankingRef)}
             />
             <KPICard
               title="Total de Alunos"
@@ -144,6 +160,7 @@ const Cfo3 = () => {
               subtitle="Registros válidos"
               variant="default"
               icon={<Users className="w-4 h-4" />}
+              onClick={() => scrollPara(rankingRef)}
             />
             <KPICard
               title="🏆 Maior Média"
@@ -151,7 +168,8 @@ const Cfo3 = () => {
               subtitle={kpis.maiorMedia.aluno}
               variant="success"
               icon={<TrendingUp className="w-4 h-4" />}
-              tooltip={`${kpis.maiorMedia.aluno} obteve a maior média: ${kpis.maiorMedia.nota.toFixed(4)}`}
+              tooltip={`${kpis.maiorMedia.aluno} obteve a maior média: ${kpis.maiorMedia.nota.toFixed(4)}. Clique para ver os detalhes.`}
+              onClick={() => handleClickAluno(kpis.maiorMedia.aluno)}
             />
             <KPICard
               title="Menor Média"
@@ -159,7 +177,8 @@ const Cfo3 = () => {
               subtitle={kpis.menorMedia.aluno}
               variant="warning"
               icon={<TrendingDown className="w-4 h-4" />}
-              tooltip={`${kpis.menorMedia.aluno} obteve a menor média: ${kpis.menorMedia.nota.toFixed(4)}`}
+              tooltip={`${kpis.menorMedia.aluno} obteve a menor média: ${kpis.menorMedia.nota.toFixed(4)}. Clique para ver os detalhes.`}
+              onClick={() => handleClickAluno(kpis.menorMedia.aluno)}
             />
           </div>
         </section>
@@ -206,7 +225,7 @@ const Cfo3 = () => {
           </div>
         </section>
 
-        <section>
+        <section ref={rankingRef}>
           <RankingTable
             students={students}
             onStudentClick={handleStudentClick as any}
@@ -216,7 +235,7 @@ const Cfo3 = () => {
           />
         </section>
 
-        <section>
+        <section ref={progressoRef}>
           <h2 className="text-xl font-semibold mb-6 text-foreground">Progresso das Matérias</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <LaunchedSubjectsList subjects={launchedSubjects} totalSubjects={allSubjects.length} />

@@ -7,6 +7,9 @@ export interface Turma {
   nome_turma: string;
   subtitulo_turma: string;
   brasao_url: string | null;
+  titulo_pagina_modulo: string;
+  titulo_pagina_geral: string;
+  subtitulo_pagina: string;
   created_at: string;
 }
 
@@ -19,6 +22,12 @@ interface TurmaContextValue {
   refetch: () => Promise<void>;
   criarTurma: (nome_turma: string, subtitulo_turma: string) => Promise<{ error: string | null; id: string | null }>;
   atualizarTurma: (id: string, nome_turma: string, subtitulo_turma: string) => Promise<{ error: string | null }>;
+  atualizarTextoCabecalho: (
+    id: string,
+    titulo_pagina_modulo: string,
+    titulo_pagina_geral: string,
+    subtitulo_pagina: string
+  ) => Promise<{ error: string | null }>;
   enviarBrasaoTurma: (id: string, arquivo: File) => Promise<{ error: string | null }>;
 }
 
@@ -27,6 +36,9 @@ const TURMA_PADRAO: Turma = {
   nome_turma: "23º CFO",
   subtitulo_turma: "Turma Alencastro",
   brasao_url: "/lovable-uploads/brasao-novo.png",
+  titulo_pagina_modulo: "Classificação – 23º CFO",
+  titulo_pagina_geral: "CLASSIFICAÇÃO FINAL – 23º CFO",
+  subtitulo_pagina: "Painel de desempenho dos alunos oficiais - Turma Alencastro",
   created_at: new Date().toISOString(),
 };
 
@@ -86,6 +98,20 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  async function atualizarTextoCabecalho(
+    id: string,
+    titulo_pagina_modulo: string,
+    titulo_pagina_geral: string,
+    subtitulo_pagina: string
+  ) {
+    const { error } = await supabase
+      .from("turmas")
+      .update({ titulo_pagina_modulo, titulo_pagina_geral, subtitulo_pagina })
+      .eq("id", id);
+    if (!error) await carregar();
+    return { error: error?.message ?? null };
+  }
+
   async function enviarBrasaoTurma(id: string, arquivo: File) {
     const extensao = arquivo.name.split(".").pop();
     const caminho = `brasao-${id}-${Date.now()}.${extensao}`;
@@ -111,6 +137,7 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
         refetch: carregar,
         criarTurma,
         atualizarTurma,
+        atualizarTextoCabecalho,
         enviarBrasaoTurma,
       }}
     >

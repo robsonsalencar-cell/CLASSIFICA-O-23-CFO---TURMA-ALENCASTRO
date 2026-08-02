@@ -17,16 +17,37 @@ export function calcularNotaFinal(vc: number | null, vf: number | null): number 
 }
 
 /**
+ * Matérias que fogem à regra normal: em vez de fazer a MÉDIA das VCs, o
+ * instrutor somou os pontos direto (ex: VC1 = nota da prova, VC2 = pontos
+ * extras de um trabalho, somados sem dividir por 2). Confirmado pelo usuário
+ * com o caso do Gernaian em "Direito Administrativo Disciplinar Militar I":
+ * VC1=7.5 + VC2=2.0(bônus) = 9.5 (soma, não média de 4.75).
+ * Válido só para esta turma (23º CFO) — se outra turma tiver a mesma
+ * matéria com um instrutor diferente que siga a regra normal, ajuste aqui
+ * (pode exigir tornar isso específico por turma, não só por nome de matéria).
+ */
+export const MATERIAS_SOMA_VC = new Set<string>(["Direito Administrativo Disciplinar Militar I"]);
+
+/**
  * Mesma fórmula, mas aceitando MÚLTIPLAS notas de VC (ex: VC1, VC2, VC3...).
- * A "nota VC" usada na fórmula é a média simples de todas as VCs lançadas,
- * depois combinada com a VF usando o peso oficial (VC peso 2, VF peso 3).
+ * Normalmente a "nota VC" usada na fórmula é a média simples de todas as VCs
+ * lançadas — EXCETO para as matérias em MATERIAS_SOMA_VC, onde são somadas
+ * diretamente. Depois combinada com a VF usando o peso oficial (VC peso 2,
+ * VF peso 3).
  */
 export function calcularNotaFinalMulti(
   vcLista: number[] | null | undefined,
-  vf: number | null
+  vf: number | null,
+  materia?: string
 ): number | null {
   const vcValidos = (vcLista ?? []).filter((v) => typeof v === "number" && !isNaN(v));
-  const vcMedia = vcValidos.length > 0 ? vcValidos.reduce((a, b) => a + b, 0) / vcValidos.length : null;
+  if (vcValidos.length === 0) return calcularNotaFinal(null, vf);
+
+  const somaDireta = materia ? MATERIAS_SOMA_VC.has(materia) : false;
+  const vcMedia = somaDireta
+    ? vcValidos.reduce((a, b) => a + b, 0)
+    : vcValidos.reduce((a, b) => a + b, 0) / vcValidos.length;
+
   return calcularNotaFinal(vcMedia, vf);
 }
 

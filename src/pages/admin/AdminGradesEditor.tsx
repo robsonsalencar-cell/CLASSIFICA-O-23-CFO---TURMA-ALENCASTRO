@@ -57,7 +57,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
 
   const novaFinalCalculada = calcularNotaFinalMulti(
     parseListaVc(novoVc),
-    novoVf ? Number(novoVf) : null
+    novoVf ? Number(novoVf) : null,
+    novaMateria
   );
   const novaFinalExibida = novaFinalManual ?? (novaFinalCalculada !== null ? String(novaFinalCalculada) : "");
 
@@ -76,7 +77,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
     const atualizado = { ...atual, [field]: value };
     const calculada = calcularNotaFinalMulti(
       parseListaVc(atualizado.vc),
-      atualizado.vf ? Number(atualizado.vf) : null
+      atualizado.vf ? Number(atualizado.vf) : null,
+      row.materia
     );
     atualizado.nota_final = calculada !== null ? String(calculada) : atualizado.nota_final;
     setEdits((prev) => ({ ...prev, [row.id]: atualizado }));

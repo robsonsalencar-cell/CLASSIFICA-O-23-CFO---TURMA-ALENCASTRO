@@ -36,9 +36,9 @@
     --warning-light: 38 92% 25%;
 
     /* Danger/Low performance - Crimson from brasão */
-    --danger: 0 70% 45%;
+    --danger: 0 85% 55%;
     --danger-foreground: 45 100% 95%;
-    --danger-light: 0 70% 20%;
+    --danger-light: 0 75% 25%;
 
     /* Neutral system with navy tint */
     --secondary: 220 25% 18%;

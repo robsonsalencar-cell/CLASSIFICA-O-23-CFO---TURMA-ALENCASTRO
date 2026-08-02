@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { HighlightCard } from "@/components/dashboard/HighlightCard";
@@ -95,6 +95,18 @@ const ClassificacaoGeral = () => {
     setIsModalOpen(true);
   };
 
+  const rankingRef = useRef<HTMLDivElement>(null);
+  const mediaModuloRef = useRef<HTMLDivElement>(null);
+
+  function handleClickAluno(nome: string) {
+    const aluno = students.find((s) => s.nome === nome);
+    if (aluno) handleStudentClick(aluno);
+  }
+
+  function scrollPara(ref: React.RefObject<HTMLDivElement>) {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   const header = (
     <header className="bg-gradient-to-r from-[hsl(220,50%,12%)] via-card/95 to-[hsl(220,50%,12%)] border-b border-primary/30 shadow-lg">
       <div className="container mx-auto px-4 py-6">
@@ -113,12 +125,12 @@ const ClassificacaoGeral = () => {
           <div className="relative inline-block mb-4">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 blur-lg -z-10"></div>
             <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-wider px-8 py-3 border-y-2 border-primary/60 bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent uppercase">
-              CLASSIFICAÇÃO FINAL – {config.nome_turma}
+              {config.titulo_pagina_geral}
             </p>
           </div>
 
           <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent">
-            Painel de desempenho dos alunos oficiais - {config.subtitulo_turma}
+            {config.subtitulo_pagina}
           </p>
           <div className="w-full text-right mt-2">
             <span className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
@@ -162,6 +174,7 @@ const ClassificacaoGeral = () => {
               subtitle="Progresso do curso (3 módulos)"
               variant="success"
               icon={<BookOpen className="w-4 h-4" />}
+              onClick={() => scrollPara(mediaModuloRef)}
             />
             <KPICard
               title="Média da Turma"
@@ -169,6 +182,7 @@ const ClassificacaoGeral = () => {
               subtitle={`Desvio-padrão: ${kpis.desvioPadrao.toFixed(4)}`}
               variant="default"
               icon={<Target className="w-4 h-4" />}
+              onClick={() => scrollPara(rankingRef)}
             />
             <KPICard
               title="Total de Alunos"
@@ -176,6 +190,7 @@ const ClassificacaoGeral = () => {
               subtitle="Registros válidos"
               variant="default"
               icon={<Users className="w-4 h-4" />}
+              onClick={() => scrollPara(rankingRef)}
             />
             <KPICard
               title="🏆 Maior Média"
@@ -183,6 +198,7 @@ const ClassificacaoGeral = () => {
               subtitle={kpis.maiorMedia.aluno}
               variant="success"
               icon={<TrendingUp className="w-4 h-4" />}
+              onClick={() => handleClickAluno(kpis.maiorMedia.aluno)}
             />
             <KPICard
               title="Menor Média"
@@ -190,12 +206,13 @@ const ClassificacaoGeral = () => {
               subtitle={kpis.menorMedia.aluno}
               variant="warning"
               icon={<TrendingDown className="w-4 h-4" />}
+              onClick={() => handleClickAluno(kpis.menorMedia.aluno)}
             />
           </div>
         </section>
 
         {/* 3 painéis extras: média da turma em cada módulo isoladamente */}
-        <section>
+        <section ref={mediaModuloRef}>
           <h2 className="text-xl font-semibold mb-4 text-foreground">Média da Turma por Módulo</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <KPICard
@@ -266,7 +283,7 @@ const ClassificacaoGeral = () => {
           </div>
         </section>
 
-        <section>
+        <section ref={rankingRef}>
           <RankingTable students={students} onStudentClick={handleStudentClick as any} kpis={kpis as any} />
         </section>
 
