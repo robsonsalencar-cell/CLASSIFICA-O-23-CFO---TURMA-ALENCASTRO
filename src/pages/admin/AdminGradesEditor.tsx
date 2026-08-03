@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Save, Trash2, PlusCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useTurma } from "@/contexts/TurmaContext";
+import { ImportarDiarioPdf } from "@/pages/admin/ImportarDiarioPdf";
 
 interface AlunoOption {
   id: string;
@@ -30,7 +31,7 @@ interface Props {
 }
 
 export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props) {
-  const { rows, loading, error, salvarNota, excluirNota } = useNotasModulo(tabela);
+  const { rows, loading, error, refetch, salvarNota, excluirNota } = useNotasModulo(tabela);
   const { turmaAtualId } = useTurma();
   const [alunos, setAlunos] = useState<AlunoOption[]>([]);
   const [edits, setEdits] = useState<Record<string, { vc: string; vf: string; nota_final: string }>>({});
@@ -148,11 +149,17 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
   return (
     <div className="space-y-6">
       <Card className="border-primary/30">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <PlusCircle className="w-5 h-5 text-primary" />
             Lançar nova nota — {tituloModulo}
           </CardTitle>
+          <ImportarDiarioPdf
+            tabela={tabela}
+            listaMaterias={listaMaterias}
+            salvarNota={salvarNota}
+            onImportado={refetch}
+          />
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
