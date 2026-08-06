@@ -14,6 +14,7 @@ import { useAlunosModulo } from "@/hooks/useAlunosModulo";
 import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
+import { useTemaModulo } from "@/hooks/useTemaModulo";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
 import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, RefreshCw, BookOpen, Loader2 } from "lucide-react";
@@ -21,6 +22,7 @@ import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, RefreshC
 const Cfo3 = () => {
   const { isAdmin, viewingAsAlunoId } = useAuth();
   const { config } = useConfiguracaoTurma();
+  useTemaModulo("tema-cfo3");
   const [selectedStudent, setSelectedStudent] = useState<DetailedStudent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 

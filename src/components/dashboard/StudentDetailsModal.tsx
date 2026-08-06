@@ -82,14 +82,14 @@ export function StudentDetailsModal({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleExport("pdf")}>
-                    <FileText className="w-4 h-4 mr-2" /> PDF
+                  <DropdownMenuItem onClick={() => handleExport("pdf")} className="text-red-500 focus:text-red-500 font-medium">
+                    <FileText className="w-4 h-4 mr-2 text-red-500" /> PDF
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport("xlsx")}>
-                    <FileSpreadsheet className="w-4 h-4 mr-2" /> Excel (.xlsx)
+                  <DropdownMenuItem onClick={() => handleExport("xlsx")} className="text-green-500 focus:text-green-500 font-medium">
+                    <FileSpreadsheet className="w-4 h-4 mr-2 text-green-500" /> Excel (.xlsx)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport("csv")}>
-                    <FileDown className="w-4 h-4 mr-2" /> CSV
+                  <DropdownMenuItem onClick={() => handleExport("csv")} className="text-blue-500 focus:text-blue-500 font-medium">
+                    <FileDown className="w-4 h-4 mr-2 text-blue-500" /> CSV
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { calcularNotaFinalMulti, parseListaVc } from "@/config/formulaNotas";
+import { calcularNotaFinalMulti, parseListaVc, paraNumeroSeguro } from "@/config/formulaNotas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -267,7 +267,7 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
                             step="0.0001"
                             value={a.vf ?? ""}
                             onChange={(e) =>
-                              atualizarLinha(idx, { vf: e.target.value ? Number(e.target.value) : null })
+                              atualizarLinha(idx, { vf: paraNumeroSeguro(e.target.value) })
                             }
                           />
                         </TableCell>

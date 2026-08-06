@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       .eq("id", caller.id)
       .single();
 
-    if (callerProfile?.role !== "admin") {
+    if (callerProfile?.role !== "admin" && callerProfile?.role !== "desenvolvedor") {
       return new Response(JSON.stringify({ error: "Apenas administradores podem editar usuários." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

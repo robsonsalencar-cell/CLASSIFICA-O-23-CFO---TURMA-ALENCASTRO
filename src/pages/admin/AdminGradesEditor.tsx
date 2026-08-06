@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useNotasModulo, TabelaModulo, NotaRow } from "@/hooks/useNotasModulo";
-import { calcularNotaFinalMulti, parseListaVc } from "@/config/formulaNotas";
+import { calcularNotaFinalMulti, parseListaVc, paraNumeroSeguro } from "@/config/formulaNotas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,7 +58,7 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
 
   const novaFinalCalculada = calcularNotaFinalMulti(
     parseListaVc(novoVc),
-    novoVf ? Number(novoVf) : null,
+    paraNumeroSeguro(novoVf),
     novaMateria
   );
   const novaFinalExibida = novaFinalManual ?? (novaFinalCalculada !== null ? String(novaFinalCalculada) : "");
@@ -78,7 +78,7 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
     const atualizado = { ...atual, [field]: value };
     const calculada = calcularNotaFinalMulti(
       parseListaVc(atualizado.vc),
-      atualizado.vf ? Number(atualizado.vf) : null,
+      paraNumeroSeguro(atualizado.vf),
       row.materia
     );
     atualizado.nota_final = calculada !== null ? String(calculada) : atualizado.nota_final;
@@ -97,8 +97,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
       aluno_id: row.aluno_id,
       materia: row.materia,
       vc_lista: parseListaVc(e.vc),
-      vf: e.vf ? Number(e.vf) : null,
-      nota_final: e.nota_final ? Number(e.nota_final) : null,
+      vf: paraNumeroSeguro(e.vf),
+      nota_final: paraNumeroSeguro(e.nota_final),
     });
     setSavingId(null);
     if (error) {
@@ -131,8 +131,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
       aluno_id: novoAlunoId,
       materia: novaMateria,
       vc_lista: parseListaVc(novoVc),
-      vf: novoVf ? Number(novoVf) : null,
-      nota_final: novaFinalExibida ? Number(novaFinalExibida) : null,
+      vf: paraNumeroSeguro(novoVf),
+      nota_final: paraNumeroSeguro(novaFinalExibida),
     });
     setSalvandoNovo(false);
     if (error) {

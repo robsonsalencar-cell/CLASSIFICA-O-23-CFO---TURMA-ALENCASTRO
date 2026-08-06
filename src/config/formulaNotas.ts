@@ -51,7 +51,7 @@ export function calcularNotaFinalMulti(
   return calcularNotaFinal(vcMedia, vf);
 }
 
-/** Converte o texto digitado (ex: "8, 9.5, 7") em uma lista de números válidos. */
+/** Converte o texto digitado (ex: "8, 9.5, 7" ou "8, 9,5, 7") em uma lista de números válidos. */
 export function parseListaVc(texto: string): number[] {
   return texto
     .split(",")
@@ -59,4 +59,18 @@ export function parseListaVc(texto: string): number[] {
     .filter((t) => t !== "")
     .map((t) => Number(t.replace(",", ".")))
     .filter((n) => !isNaN(n));
+}
+
+/**
+ * Converte um único valor digitado para número, aceitando tanto vírgula
+ * quanto ponto como separador decimal (ex: "9,4937" ou "9.4937" — os dois
+ * viram 9.4937). Use isso em vez de Number(x) direto em qualquer campo onde
+ * o usuário pode digitar uma nota — sem isso, "9,4937" vira NaN e a nota
+ * some silenciosamente do cálculo.
+ */
+export function paraNumeroSeguro(valor: string | number | null | undefined): number | null {
+  if (valor === null || valor === undefined || valor === "") return null;
+  if (typeof valor === "number") return isNaN(valor) ? null : valor;
+  const n = Number(String(valor).trim().replace(",", "."));
+  return isNaN(n) ? null : n;
 }
