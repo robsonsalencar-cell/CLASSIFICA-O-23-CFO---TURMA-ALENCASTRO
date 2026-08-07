@@ -92,9 +92,9 @@ export const HighlightCard = ({
         
         <h3
           className={cn(
-            "font-semibold text-sm mb-2",
+            "font-semibold text-sm mb-2 break-words",
             variant === "top" && rank === 1 && cfoAverages
-              ? "texto-trofeu-dourado text-base font-extrabold"
+              ? "texto-trofeu-dourado text-xl sm:text-2xl md:text-3xl font-extrabold leading-tight mb-3"
               : getTextColor()
           )}
         >

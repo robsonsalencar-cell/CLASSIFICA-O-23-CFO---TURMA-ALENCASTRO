@@ -43,6 +43,10 @@ interface RankingTableProps {
   // "modulo": página de um módulo só (CFO I/II/III) — mostra Rank/Nome/Média/Classificação.
   // "geral" (padrão): Classificação Geral — mostra o detalhamento CFO I/II/III + Média Final.
   modo?: "modulo" | "geral";
+  // Controla se o botão "Exportar Relatório" (completo, de todos os alunos)
+  // aparece. Só admin/desenvolvedor deve poder exportar o relatório da turma
+  // inteira — um aluno vendo o ranking (se liberado) não deve ter essa opção.
+  podeExportar?: boolean;
 }
 
 function badgeClassificacao(media: number) {
@@ -51,7 +55,14 @@ function badgeClassificacao(media: number) {
   return <Badge variant="destructive">Regular</Badge>;
 }
 
-export const RankingTable = ({ students, onStudentClick, kpis, subjectProgress, modo = "geral" }: RankingTableProps) => {
+export const RankingTable = ({
+  students,
+  onStudentClick,
+  kpis,
+  subjectProgress,
+  modo = "geral",
+  podeExportar = true,
+}: RankingTableProps) => {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -144,28 +155,30 @@ export const RankingTable = ({ students, onStudentClick, kpis, subjectProgress, 
               Limpar
             </Button>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Download className="w-4 h-4 mr-2" />
-                  Exportar Relatório
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => exportToPDF(buildReportData())}>
-                  <FileType className="w-4 h-4 mr-2 text-red-500" />
-                  Exportar PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportToXLSX(buildReportData())}>
-                  <FileSpreadsheet className="w-4 h-4 mr-2 text-green-500" />
-                  Exportar Excel (.xlsx)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportToCSV(buildReportData())}>
-                  <FileText className="w-4 h-4 mr-2 text-blue-500" />
-                  Exportar CSV
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {podeExportar && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <Download className="w-4 h-4 mr-2" />
+                    Exportar Relatório
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => exportToPDF(buildReportData())}>
+                    <FileType className="w-4 h-4 mr-2 text-red-500" />
+                    Exportar PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportToXLSX(buildReportData())}>
+                    <FileSpreadsheet className="w-4 h-4 mr-2 text-green-500" />
+                    Exportar Excel (.xlsx)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportToCSV(buildReportData())}>
+                    <FileText className="w-4 h-4 mr-2 text-blue-500" />
+                    Exportar CSV
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </CardHeader>

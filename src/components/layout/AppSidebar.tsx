@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, ShieldCheck, Trophy, KeyRound, LogOut, Eye, GraduationCap, ScrollText } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { LayoutDashboard, ShieldCheck, Trophy, KeyRound, LogOut, Eye, GraduationCap, ScrollText, Lock, Unlock } from "lucide-react";
 
 const modulos = [
   { to: "/cfo1", label: "CFO I", cor: "hsl(210,90%,65%)" },
@@ -36,7 +37,7 @@ const modulos = [
 export function AppSidebar() {
   const { profile, isAdmin, isDeveloper, viewingAsAlunoId, setViewingAsAlunoId, signOut } = useAuth();
   const { config } = useConfiguracaoTurma();
-  const { turmas, turmaAtualId, setTurmaAtualId } = useTurma();
+  const { turmas, turmaAtualId, setTurmaAtualId, turmaAtual, alternarRankingPublico } = useTurma();
   const [alunos, setAlunos] = useState<{ id: string; nome_completo: string }[]>([]);
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-2">
           <img src={config.brasao_url ?? "/lovable-uploads/brasao-novo.png"} alt={config.nome_turma} className="w-9 h-9 object-contain" />
           <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-foreground">{config.nome_turma}</p>
+            <p className="text-sm font-extrabold uppercase tracking-wide texto-trofeu-dourado">{config.nome_turma}</p>
             <p className="text-xs text-muted-foreground">{config.subtitulo_turma}</p>
           </div>
         </div>
@@ -150,6 +151,28 @@ export function AppSidebar() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="px-2 pt-4 space-y-1.5 border-t border-border/50 mt-3">
+                <div className="flex items-center justify-between gap-2 pt-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    {turmaAtual?.ranking_publico ? (
+                      <Unlock className="w-3.5 h-3.5 text-success" />
+                    ) : (
+                      <Lock className="w-3.5 h-3.5" />
+                    )}
+                    Ranking p/ alunos
+                  </p>
+                  <Switch
+                    checked={turmaAtual?.ranking_publico ?? false}
+                    onCheckedChange={(v) => turmaAtualId && alternarRankingPublico(turmaAtualId, v)}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  {turmaAtual?.ranking_publico
+                    ? "Alunos veem o ranking completo da turma."
+                    : "Alunos veem só o próprio resumo (padrão)."}
+                </p>
               </div>
             </SidebarGroupContent>
           </SidebarGroup>

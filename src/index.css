@@ -118,6 +118,14 @@
   html.tema-cfo3 {
   }
 
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px hsl(var(--primary) / 0.15), inset 0 0 30px hsl(var(--primary) / 0.05); }
+    50% { box-shadow: 0 0 40px hsl(var(--primary) / 0.35), inset 0 0 40px hsl(var(--primary) / 0.12); }
+  }
+  .animate-pulse-glow {
+    animation: pulse-glow 2.5s ease-in-out infinite;
+  }
+
   html.tema-geral {
   }
 

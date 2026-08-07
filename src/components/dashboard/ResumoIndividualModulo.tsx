@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useEstatisticasModulo } from "@/hooks/useEstatisticasModulo";
 import { useNotasModulo, TabelaModulo } from "@/hooks/useNotasModulo";
 import { Loader2, Medal, Target, TrendingUp, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   tabela: TabelaModulo | "geral";
@@ -36,7 +37,32 @@ export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Pr
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* "Minha posição" em destaque — é a informação que mais importa pro aluno */}
+      <div
+        className={cn(
+          "relative rounded-2xl border-2 p-6 md:p-8 text-center overflow-hidden animate-pulse-glow",
+          tabela === "geral" ? "border-primary/50" : "border-primary/50"
+        )}
+        style={{
+          background: "radial-gradient(ellipse at center, hsl(var(--primary) / 0.14), transparent 70%)",
+        }}
+      >
+        <div className="flex items-center justify-center gap-2 mb-2 text-muted-foreground">
+          <Medal className="w-5 h-5" />
+          <span className="text-sm font-semibold uppercase tracking-widest">Minha posição</span>
+        </div>
+        <p
+          className={cn(
+            "text-6xl md:text-8xl font-extrabold leading-none",
+            tabela === "geral" ? "texto-trofeu-dourado" : "text-primary drop-shadow-[0_0_25px_hsl(var(--primary)/0.6)]"
+          )}
+        >
+          {dados?.minha_posicao != null ? `${dados.minha_posicao}º` : "—"}
+        </p>
+        <p className="text-sm text-muted-foreground mt-2">de {dados?.total_alunos ?? 0} alunos</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <KPICard
           title="Minha média"
           value={dados?.minha_media != null ? dados.minha_media.toFixed(4) : "—"}
@@ -45,29 +71,11 @@ export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Pr
           icon={<Target className="w-4 h-4" />}
         />
         <KPICard
-          title="Minha posição"
-          value={dados?.minha_posicao != null ? `${dados.minha_posicao}º` : "—"}
-          subtitle={`de ${dados?.total_alunos ?? 0} alunos`}
-          variant="default"
-          icon={<Medal className="w-4 h-4" />}
-        />
-        <KPICard
           title="Média da turma"
           value={dados?.media_turma != null ? dados.media_turma.toFixed(4) : "—"}
           subtitle={`Desvio-padrão: ${dados?.desvio_padrao?.toFixed(4) ?? "—"}`}
           variant="default"
           icon={<Users className="w-4 h-4" />}
-        />
-        <KPICard
-          title="Amplitude da turma"
-          value={
-            dados?.maior_media != null && dados?.menor_media != null
-              ? `${dados.menor_media.toFixed(2)} – ${dados.maior_media.toFixed(2)}`
-              : "—"
-          }
-          subtitle="Menor e maior média da turma"
-          variant="default"
-          icon={<TrendingUp className="w-4 h-4" />}
         />
       </div>
 

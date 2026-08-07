@@ -10,6 +10,7 @@ export interface Turma {
   titulo_pagina_modulo: string;
   titulo_pagina_geral: string;
   subtitulo_pagina: string;
+  ranking_publico: boolean;
   created_at: string;
 }
 
@@ -29,6 +30,7 @@ interface TurmaContextValue {
     subtitulo_pagina: string
   ) => Promise<{ error: string | null }>;
   enviarBrasaoTurma: (id: string, arquivo: File) => Promise<{ error: string | null }>;
+  alternarRankingPublico: (id: string, valor: boolean) => Promise<{ error: string | null }>;
 }
 
 const TURMA_PADRAO: Turma = {
@@ -39,6 +41,7 @@ const TURMA_PADRAO: Turma = {
   titulo_pagina_modulo: "Classificação – 23º CFO",
   titulo_pagina_geral: "CLASSIFICAÇÃO FINAL – 23º CFO",
   subtitulo_pagina: "Painel de desempenho dos alunos oficiais - Turma Alencastro",
+  ranking_publico: false,
   created_at: new Date().toISOString(),
 };
 
@@ -126,6 +129,12 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
     return { error: updateError?.message ?? null };
   }
 
+  async function alternarRankingPublico(id: string, valor: boolean) {
+    const { error } = await supabase.from("turmas").update({ ranking_publico: valor }).eq("id", id);
+    if (!error) await carregar();
+    return { error: error?.message ?? null };
+  }
+
   return (
     <TurmaContext.Provider
       value={{
@@ -139,6 +148,7 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
         atualizarTurma,
         atualizarTextoCabecalho,
         enviarBrasaoTurma,
+        alternarRankingPublico,
       }}
     >
       {children}

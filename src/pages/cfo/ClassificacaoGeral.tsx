@@ -16,7 +16,7 @@ import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
 import { useTemaModulo } from "@/hooks/useTemaModulo";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
-import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, BookOpen, Loader2 } from "lucide-react";
+import { Users, Target, TrendingUp, TrendingDown, Award, AlertTriangle, BookOpen, Loader2, Star } from "lucide-react";
 
 function mediaSimples(valores: number[]): number {
   return valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
@@ -26,7 +26,7 @@ const ClassificacaoGeral = () => {
   const { isAdmin, viewingAsAlunoId } = useAuth();
   const { config } = useConfiguracaoTurma();
   useTemaModulo("tema-geral");
-  const mostrarVisaoCompleta = isAdmin && !viewingAsAlunoId;
+  const mostrarVisaoCompleta = (isAdmin && !viewingAsAlunoId) || (!isAdmin && config.ranking_publico);
   const [selectedStudent, setSelectedStudent] = useState<DetailedStudent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -133,8 +133,8 @@ const ClassificacaoGeral = () => {
           </div>
 
           <div className="relative inline-block mb-4">
-            <span className="absolute -left-8 top-1/2 -translate-y-1/2 text-3xl md:text-4xl text-primary/70 select-none">✦</span>
-            <span className="absolute -right-8 top-1/2 -translate-y-1/2 text-3xl md:text-4xl text-primary/70 select-none">✦</span>
+            <Star className="absolute -left-9 top-1/2 -translate-y-1/2 w-7 h-7 md:w-8 md:h-8 text-primary/80 fill-primary/60 drop-shadow-[0_0_8px_rgba(255,200,60,0.6)]" />
+            <Star className="absolute -right-9 top-1/2 -translate-y-1/2 w-7 h-7 md:w-8 md:h-8 text-primary/80 fill-primary/60 drop-shadow-[0_0_8px_rgba(255,200,60,0.6)]" />
             <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 blur-xl -z-10" />
             <p className="texto-trofeu-dourado text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-wider px-8 py-3 uppercase">
               {config.titulo_pagina_geral}
@@ -299,7 +299,7 @@ const ClassificacaoGeral = () => {
         </section>
 
         <section ref={rankingRef}>
-          <RankingTable students={students} onStudentClick={handleStudentClick as any} kpis={kpis as any} />
+          <RankingTable students={students} onStudentClick={handleStudentClick as any} kpis={kpis as any} podeExportar={isAdmin} />
         </section>
 
         <section>

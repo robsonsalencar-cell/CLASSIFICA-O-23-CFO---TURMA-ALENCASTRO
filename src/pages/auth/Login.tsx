@@ -41,7 +41,7 @@ export default function Login() {
           <img
             src={config.brasao_url ?? "/lovable-uploads/brasao-novo.png"}
             alt={config.nome_turma}
-            className="w-28 h-28 object-contain drop-shadow-2xl mb-4"
+            className="w-44 h-44 md:w-52 md:h-52 object-contain drop-shadow-2xl mb-4"
           />
           <p className="text-2xl font-bold tracking-wide bg-gradient-to-r from-primary/90 via-[hsl(45,100%,70%)] to-primary/90 bg-clip-text text-transparent uppercase text-center">
             Painel {config.nome_turma}

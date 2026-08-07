@@ -29,7 +29,7 @@ const Cfo1 = () => {
   // Visão completa (ranking, Top 3, Carroceiros) só para o admin em "Visão Geral".
   // Aluno comum, ou admin simulando um aluno específico, vê só o próprio resumo —
   // nunca o nome ou nota de outro cadete.
-  const mostrarVisaoCompleta = isAdmin && !viewingAsAlunoId;
+  const mostrarVisaoCompleta = (isAdmin && !viewingAsAlunoId) || (!isAdmin && config.ranking_publico);
 
   const { students, loading, error, refetch, subjectsLaunched, launchedSubjects, allSubjects } =
     useAlunosModulo("notas_cfo1", MATERIAS_CFO1);
@@ -234,6 +234,7 @@ const Cfo1 = () => {
             kpis={kpis as any}
             subjectProgress={subjectProgress as any}
             modo="modulo"
+            podeExportar={isAdmin}
           />
         </section>
 

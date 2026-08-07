@@ -12,6 +12,7 @@ import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { AlunoModulo } from "@/hooks/useAlunosModulo";
 import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
 import { exportarAlunoCSV, exportarAlunoPDF, exportarAlunoXLSX } from "@/utils/exportAluno";
+import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Award, AlertCircle, Download, FileText, FileSpreadsheet, FileDown } from "lucide-react";
 
 interface StudentDetailsModalProps {
@@ -38,6 +39,7 @@ export function StudentDetailsModal({
   const { config } = useConfiguracaoTurma();
   if (!student) return null;
 
+  const daGeral = Boolean((student as any).cfoAverages);
   const detalhado = (student as AlunoModulo).gradesDetalhado ?? {};
   const materias = Object.entries(detalhado).sort(
     (a, b) => (b[1].nota_final ?? 0) - (a[1].nota_final ?? 0)
@@ -93,7 +95,10 @@ export function StudentDetailsModal({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Badge variant="secondary" className="text-sm">
+              <Badge
+                variant="secondary"
+                className={cn("text-sm", daGeral && "texto-trofeu-dourado bg-transparent border border-primary/40 font-bold text-base")}
+              >
                 Média Final: {student.mediaFinal.toFixed(4)}
               </Badge>
             </div>
