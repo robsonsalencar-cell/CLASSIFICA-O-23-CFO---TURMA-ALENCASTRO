@@ -90,7 +90,14 @@ export const HighlightCard = ({
           {getIcon()}
         </div>
         
-        <h3 className={cn("font-semibold text-sm mb-2", getTextColor())}>
+        <h3
+          className={cn(
+            "font-semibold text-sm mb-2",
+            variant === "top" && rank === 1 && cfoAverages
+              ? "texto-trofeu-dourado text-base font-extrabold"
+              : getTextColor()
+          )}
+        >
           {nome}
         </h3>
         

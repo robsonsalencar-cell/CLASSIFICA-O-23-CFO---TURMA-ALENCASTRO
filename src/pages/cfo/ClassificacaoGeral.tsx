@@ -115,31 +115,39 @@ const ClassificacaoGeral = () => {
   }
 
   const header = (
-    <header className="bg-gradient-to-r from-[hsl(220,50%,12%)] via-card/95 to-[hsl(220,50%,12%)] border-b border-primary/30 shadow-lg">
-      <div className="container mx-auto px-4 py-6">
+    <header className="relative bg-gradient-to-r from-[hsl(220,50%,10%)] via-[hsl(220,45%,14%)] to-[hsl(220,50%,10%)] border-b-2 border-primary/50 shadow-[0_4px_40px_rgba(240,180,50,0.15)] overflow-hidden">
+      {/* brilho ambiente sutil no fundo, reforçando o clima de conquista */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(240,180,50,0.10),_transparent_60%)] pointer-events-none" />
+
+      <div className="relative container mx-auto px-4 py-8">
         <div className="text-center">
           <div className="flex justify-center mb-6">
             <div className="relative">
               <img
                 src={config.brasao_url ?? "/lovable-uploads/brasao-novo.png"}
                 alt={config.nome_turma}
-                className="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 object-contain drop-shadow-2xl"
+                className="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 object-contain drop-shadow-[0_0_35px_rgba(255,200,60,0.45)]"
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-[hsl(220,60%,30%)]/10 blur-xl opacity-30 -z-10"></div>
+              <div className="absolute inset-0 bg-[radial-gradient(circle,_rgba(255,210,80,0.35),_transparent_70%)] blur-2xl -z-10 scale-150" />
             </div>
           </div>
 
           <div className="relative inline-block mb-4">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 blur-lg -z-10"></div>
-            <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-wider px-8 py-3 border-y-2 border-primary/60 bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent uppercase">
+            <span className="absolute -left-8 top-1/2 -translate-y-1/2 text-3xl md:text-4xl text-primary/70 select-none">✦</span>
+            <span className="absolute -right-8 top-1/2 -translate-y-1/2 text-3xl md:text-4xl text-primary/70 select-none">✦</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 blur-xl -z-10" />
+            <p className="texto-trofeu-dourado text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-wider px-8 py-3 uppercase">
               {config.titulo_pagina_geral}
             </p>
           </div>
 
-          <p className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary/80 via-[hsl(220,60%,60%)]/80 to-primary/80 bg-clip-text text-transparent">
+          <p className="text-lg md:text-xl font-semibold text-primary/90 tracking-wide">
             {config.subtitulo_pagina}
           </p>
-          <div className="w-full text-right mt-2">
+          <p className="text-xs md:text-sm text-muted-foreground mt-2 italic">
+            "O fim de uma grande jornada — a estrela dourada do aspirantado."
+          </p>
+          <div className="w-full text-right mt-3">
             <span className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
           </div>
         </div>

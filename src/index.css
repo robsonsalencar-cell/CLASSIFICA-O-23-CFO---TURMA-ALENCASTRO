@@ -121,6 +121,41 @@
   html.tema-geral {
   }
 
+  /* ============================================================
+     EFEITO "TROFÉU DOURADO" — usado no título da Classificação Final,
+     para transmitir a sensação de conquista/vitória (fim de uma jornada).
+     Gradiente dourado com brilho animado + contorno escuro + glow.
+     ============================================================ */
+  @keyframes brilho-dourado {
+    0% { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+
+  .texto-trofeu-dourado {
+    background: linear-gradient(
+      90deg,
+      #a8720a 0%,
+      #ffe9a8 12%,
+      #ffd966 22%,
+      #fffbea 30%,
+      #ffd966 38%,
+      #f0b429 55%,
+      #a8720a 70%,
+      #ffe9a8 85%,
+      #a8720a 100%
+    );
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgba(74, 46, 0, 0.85);
+    filter:
+      drop-shadow(0 2px 1px rgba(0, 0, 0, 0.55))
+      drop-shadow(0 0 18px rgba(255, 200, 60, 0.55))
+      drop-shadow(0 0 36px rgba(255, 170, 30, 0.3));
+    animation: brilho-dourado 4s linear infinite;
+  }
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
