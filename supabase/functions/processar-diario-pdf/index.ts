@@ -100,7 +100,24 @@ Deno.serve(async (req) => {
       queryAlunos = queryAlunos.eq(colunaMatricula, true);
     }
 
-    const { data: alunosDaTurma } = await queryAlunos;
+    const { data: alunosDaTurma, error: erroAlunos } = await queryAlunos;
+
+    if (erroAlunos) {
+      return new Response(
+        JSON.stringify({ error: `Erro ao buscar alunos da turma: ${erroAlunos.message}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!alunosDaTurma || alunosDaTurma.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Nenhum aluno matriculado encontrado para esta turma/módulo. Verifique se a migração do banco foi aplicada corretamente (colunas matriculado_cfo1/2/3).",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const listaNomes = (alunosDaTurma ?? []).map((a) => a.nome_completo).join("\n");
 
@@ -138,7 +155,7 @@ Regras importantes:
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 4096,
+        max_tokens: 8192,
         messages: [
           {
             role: "user",
@@ -163,11 +180,33 @@ Regras importantes:
     }
 
     const resultado = await response.json();
+
+    // Detecta se a resposta foi cortada por atingir o limite de tokens —
+    // nesse caso o JSON fica incompleto e não dá pra recuperar.
+    if (resultado.stop_reason === "max_tokens") {
+      return new Response(
+        JSON.stringify({
+          error:
+            "A resposta da IA foi cortada por ser muito longa (diário com muitos alunos/colunas). Tente novamente ou avise o suporte.",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const textoResposta = resultado.content?.map((b: any) => b.text ?? "").join("") ?? "";
 
     let extraido;
     try {
-      const jsonLimpo = textoResposta.replace(/```json|```/g, "").trim();
+      // Remove blocos de código markdown, se houver
+      let jsonLimpo = textoResposta.replace(/```json|```/g, "").trim();
+      // Caso a IA tenha adicionado algum texto antes/depois do JSON (mesmo
+      // com instrução contrária), extrai só o trecho entre a primeira "{" e
+      // a última "}" — muito mais tolerante a pequenas variações.
+      const inicio = jsonLimpo.indexOf("{");
+      const fim = jsonLimpo.lastIndexOf("}");
+      if (inicio !== -1 && fim !== -1 && fim > inicio) {
+        jsonLimpo = jsonLimpo.slice(inicio, fim + 1);
+      }
       extraido = JSON.parse(jsonLimpo);
     } catch {
       return new Response(
