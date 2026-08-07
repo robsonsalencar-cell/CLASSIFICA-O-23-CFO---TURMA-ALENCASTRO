@@ -52,14 +52,16 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
 
   useEffect(() => {
     if (!turmaAtualId) return;
+    const colunaMatricula = `matriculado_${tabela.replace("notas_", "")}`;
     supabase
       .from("profiles")
       .select("id, nome_completo")
       .eq("role", "aluno")
       .eq("turma_id", turmaAtualId)
+      .eq(colunaMatricula, true)
       .order("nome_completo")
       .then(({ data }) => setAlunos(data ?? []));
-  }, [turmaAtualId]);
+  }, [turmaAtualId, tabela]);
 
   const novaFinalCalculada = calcularNotaFinalMulti(
     parseListaVc(novoVc),

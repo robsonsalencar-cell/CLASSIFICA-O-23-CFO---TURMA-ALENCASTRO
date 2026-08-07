@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { pdf_base64, materia, turma_id } = await req.json();
+    const { pdf_base64, materia, turma_id, tabela } = await req.json();
 
     if (!pdf_base64 || !materia || !turma_id) {
       return new Response(JSON.stringify({ error: "pdf_base64, materia e turma_id são obrigatórios." }), {
@@ -86,14 +86,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Busca os alunos da TURMA EM FOCO (não necessariamente a turma do próprio
-    // admin/desenvolvedor — ele pode estar gerenciando outra turma no momento),
-    // para ajudar a IA a casar os nomes exatamente como estão cadastrados.
-    const { data: alunosDaTurma } = await adminClient
+    // Busca os alunos da TURMA EM FOCO que estão matriculados neste módulo
+    // específico (um aluno que saiu do curso no meio não deve nem aparecer
+    // como opção de casamento de nome).
+    let queryAlunos = adminClient
       .from("profiles")
       .select("id, nome_completo")
       .eq("role", "aluno")
       .eq("turma_id", turma_id);
+
+    if (tabela && ["notas_cfo1", "notas_cfo2", "notas_cfo3"].includes(tabela)) {
+      const colunaMatricula = `matriculado_${tabela.replace("notas_", "")}`;
+      queryAlunos = queryAlunos.eq(colunaMatricula, true);
+    }
+
+    const { data: alunosDaTurma } = await queryAlunos;
 
     const listaNomes = (alunosDaTurma ?? []).map((a) => a.nome_completo).join("\n");
 

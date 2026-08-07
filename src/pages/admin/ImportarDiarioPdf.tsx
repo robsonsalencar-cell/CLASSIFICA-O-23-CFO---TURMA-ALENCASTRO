@@ -96,7 +96,7 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
       }
 
       const { data, error } = await supabase.functions.invoke("processar-diario-pdf", {
-        body: { pdf_base64: base64, materia, turma_id: turmaAtualId },
+        body: { pdf_base64: base64, materia, turma_id: turmaAtualId, tabela },
       });
 
       if (error || (data as any)?.error) {

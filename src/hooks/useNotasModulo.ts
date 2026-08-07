@@ -52,10 +52,12 @@ export function useNotasModulo(tabela: TabelaModulo) {
       // depois filtra as notas por esses IDs — evita depender de filtro por
       // coluna de tabela relacionada, que tem comportamento inconsistente
       // dependendo da versão/configuração do PostgREST.
+      const colunaMatricula = `matriculado_${tabela.replace("notas_", "")}`;
       const { data: alunosDaTurma, error: erroAlunos } = await supabase
         .from("profiles")
         .select("id")
-        .eq("turma_id", turmaAtualId);
+        .eq("turma_id", turmaAtualId)
+        .eq(colunaMatricula, true);
 
       if (erroAlunos) {
         setError(erroAlunos.message);
