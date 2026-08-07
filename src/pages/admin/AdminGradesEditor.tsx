@@ -37,6 +37,11 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
   const [edits, setEdits] = useState<Record<string, { vc: string; vf: string; nota_final: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
+  // filtros da tabela "Notas lançadas" — úteis pra conferir um diário
+  // recém-importado (filtra pela matéria) ou um aluno específico
+  const [filtroMateria, setFiltroMateria] = useState<string>("__todas__");
+  const [filtroAluno, setFiltroAluno] = useState("");
+
   // formulário de novo lançamento
   const [novoAlunoId, setNovoAlunoId] = useState("");
   const [novaMateria, setNovaMateria] = useState("");
@@ -158,7 +163,11 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
             tabela={tabela}
             listaMaterias={listaMaterias}
             salvarNota={salvarNota}
-            onImportado={refetch}
+            onImportado={(materiaImportada) => {
+              refetch();
+              setFiltroMateria(materiaImportada);
+              setFiltroAluno("");
+            }}
           />
         </CardHeader>
         <CardContent>
@@ -231,6 +240,33 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
           <CardTitle className="text-lg">Notas lançadas — {tituloModulo}</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Filtrar por matéria</Label>
+              <Select value={filtroMateria} onValueChange={setFiltroMateria}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todas as matérias" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__todas__">Todas as matérias</SelectItem>
+                  {listaMaterias.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Buscar aluno</Label>
+              <Input
+                className="h-9"
+                placeholder="Digite o nome do aluno..."
+                value={filtroAluno}
+                onChange={(e) => setFiltroAluno(e.target.value)}
+              />
+            </div>
+          </div>
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -251,7 +287,14 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((row) => {
+                  {rows
+                    .filter((row) => filtroMateria === "__todas__" || row.materia === filtroMateria)
+                    .filter((row) =>
+                      filtroAluno.trim() === ""
+                        ? true
+                        : (row.aluno_nome ?? "").toLowerCase().includes(filtroAluno.trim().toLowerCase())
+                    )
+                    .map((row) => {
                     const e = getEdicao(row);
                     return (
                       <TableRow key={row.id}>

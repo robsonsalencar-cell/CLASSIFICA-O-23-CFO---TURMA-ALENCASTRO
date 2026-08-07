@@ -48,7 +48,7 @@ interface Props {
     vf?: number | null;
     nota_final?: number | null;
   }) => Promise<{ error: string | null }>;
-  onImportado?: () => void;
+  onImportado?: (materiaImportada: string) => void;
 }
 
 function paraTexto(vc: number[]) {
@@ -151,7 +151,7 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
     });
     setAberto(false);
     resetar();
-    onImportado?.();
+    onImportado?.(materia);
   }
 
   return (
