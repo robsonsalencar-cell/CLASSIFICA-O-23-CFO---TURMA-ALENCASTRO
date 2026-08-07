@@ -77,22 +77,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { pdf_base64, materia } = await req.json();
+    const { pdf_base64, materia, turma_id } = await req.json();
 
-    if (!pdf_base64 || !materia) {
-      return new Response(JSON.stringify({ error: "pdf_base64 e materia são obrigatórios." }), {
+    if (!pdf_base64 || !materia || !turma_id) {
+      return new Response(JSON.stringify({ error: "pdf_base64, materia e turma_id são obrigatórios." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Busca os alunos da turma do admin, para ajudar a IA a casar os nomes
-    // exatamente como estão cadastrados (evita "quase igual" ficar sem casar).
+    // Busca os alunos da TURMA EM FOCO (não necessariamente a turma do próprio
+    // admin/desenvolvedor — ele pode estar gerenciando outra turma no momento),
+    // para ajudar a IA a casar os nomes exatamente como estão cadastrados.
     const { data: alunosDaTurma } = await adminClient
       .from("profiles")
       .select("id, nome_completo")
       .eq("role", "aluno")
-      .eq("turma_id", callerProfile.turma_id);
+      .eq("turma_id", turma_id);
 
     const listaNomes = (alunosDaTurma ?? []).map((a) => a.nome_completo).join("\n");
 

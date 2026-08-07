@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, FileUp, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { TabelaModulo } from "@/hooks/useNotasModulo";
+import { useTurma } from "@/contexts/TurmaContext";
 
 interface AlunoExtraido {
   nome: string;
@@ -55,6 +56,7 @@ function paraTexto(vc: number[]) {
 }
 
 export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImportado }: Props) {
+  const { turmaAtualId } = useTurma();
   const [aberto, setAberto] = useState(false);
   const [materia, setMateria] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
@@ -87,8 +89,14 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
         reader.readAsDataURL(arquivo);
       });
 
+      if (!turmaAtualId) {
+        setErro("Nenhuma turma selecionada.");
+        setProcessando(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("processar-diario-pdf", {
-        body: { pdf_base64: base64, materia },
+        body: { pdf_base64: base64, materia, turma_id: turmaAtualId },
       });
 
       if (error || (data as any)?.error) {
