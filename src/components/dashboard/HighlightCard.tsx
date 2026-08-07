@@ -54,10 +54,14 @@ export const HighlightCard = ({
   };
 
   const getTextColor = () => {
-    // Os 3 primeiros lugares usam a MESMA cor (a do tema do módulo), não uma
-    // cor diferente por posição — assim acompanha CFO I azul / CFO II verde /
-    // CFO III dourado corretamente.
-    if (variant === "top") return "text-primary";
+    if (variant === "top") {
+      // Na Classificação Geral (quando mostra o detalhamento CFO I/II/III),
+      // nome e média ficam brancos/neutros, igual aos Carroceiros ao lado —
+      // as cores dos módulos já aparecem nos números do detalhamento.
+      if (cfoAverages) return "text-foreground";
+      // Nas páginas de um módulo só (CFO I/II/III), continua na cor do tema.
+      return "text-primary";
+    }
     // Carroceiros: nome e média em branco/neutro (só o ícone e o selo
     // continuam vermelhos, para não perder o alerta visual)
     return "text-foreground";

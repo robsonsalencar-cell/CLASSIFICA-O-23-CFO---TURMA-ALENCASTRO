@@ -63,17 +63,22 @@ const ClassificacaoGeral = () => {
     acumular(cfo2.students, "cfoII", "CFO II");
     acumular(cfo3.students, "cfoIII", "CFO III");
 
-    const lista = Array.from(porAlunoId.values()).map((s) => {
-      const medias = [s.cfoI, s.cfoII, s.cfoIII].filter((v): v is number => typeof v === "number");
-      const mediaFinal = mediaSimples(medias);
-      return {
-        nome: s.nome,
-        mediaFinal,
-        rank: 0,
-        cfoAverages: { cfoI: s.cfoI, cfoII: s.cfoII, cfoIII: s.cfoIII },
-        gradesDetalhado: s.gradesDetalhado,
-      } as unknown as DetailedStudent;
-    });
+    const lista = Array.from(porAlunoId.values())
+      // Só entra na Classificação Geral quem tem nota nos 3 módulos — um
+      // aluno que saiu do curso no meio (ex: só fez CFO I) continua aparecendo
+      // normalmente no ranking daquele módulo, mas não na classificação final.
+      .filter((s) => typeof s.cfoI === "number" && typeof s.cfoII === "number" && typeof s.cfoIII === "number")
+      .map((s) => {
+        const medias = [s.cfoI, s.cfoII, s.cfoIII].filter((v): v is number => typeof v === "number");
+        const mediaFinal = mediaSimples(medias);
+        return {
+          nome: s.nome,
+          mediaFinal,
+          rank: 0,
+          cfoAverages: { cfoI: s.cfoI, cfoII: s.cfoII, cfoIII: s.cfoIII },
+          gradesDetalhado: s.gradesDetalhado,
+        } as unknown as DetailedStudent;
+      });
 
     lista.sort((a, b) => b.mediaFinal - a.mediaFinal);
     lista.forEach((s, i) => (s.rank = i + 1));
