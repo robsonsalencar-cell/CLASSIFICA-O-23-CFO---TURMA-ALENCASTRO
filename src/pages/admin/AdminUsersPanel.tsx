@@ -319,8 +319,8 @@ export function AdminUsersPanel() {
                             <TableCell>{p.email}</TableCell>
                             <TableCell>{p.cpf ?? "—"}</TableCell>
                             <TableCell>
-                              <Badge variant={p.role === "admin" ? "default" : "secondary"}>
-                                {p.role === "admin" ? "Administrador" : "Aluno"}
+                              <Badge variant={p.role === "aluno" ? "secondary" : "default"}>
+                                {p.role === "desenvolvedor" ? "Desenvolvedor" : p.role === "admin" ? "Administrador" : "Aluno"}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
