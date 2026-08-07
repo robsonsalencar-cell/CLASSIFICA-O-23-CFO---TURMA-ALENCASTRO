@@ -94,7 +94,7 @@
      ícones, menu lateral) herda automaticamente, sem precisar editar cada
      componente um por um.
      ============================================================ */
-  .tema-cfo1 {
+  html.tema-cfo1 {
     --background: 220 45% 12%;
     --primary: 210 90% 65%;
     --primary-hover: 210 95% 70%;
@@ -102,7 +102,7 @@
     --sidebar-ring: 210 90% 65%;
   }
 
-  .tema-cfo2 {
+  html.tema-cfo2 {
     --background: 140 45% 12%;
     --primary: 140 70% 50%;
     --primary-hover: 140 75% 55%;
@@ -115,10 +115,10 @@
   /* CFO III e Classificação Geral já usam a paleta dourada padrão (--root),
      que é a mesma do projeto original de CFO III — nenhuma sobreposição
      necessária, mas as classes existem para deixar explícito na marcação. */
-  .tema-cfo3 {
+  html.tema-cfo3 {
   }
 
-  .tema-geral {
+  html.tema-geral {
   }
 
   .dark {
