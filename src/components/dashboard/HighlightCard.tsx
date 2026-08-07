@@ -94,19 +94,19 @@ export const HighlightCard = ({
         {cfoAverages && (
           <div className="grid grid-cols-4 gap-2 mb-2">
             <div className="text-center">
-              <span className="text-xs font-bold text-muted-foreground block">CFO I</span>
+              <span className="text-xs font-bold block" style={{ color: "hsl(210,90%,65%)" }}>CFO I</span>
               <span className="font-extrabold text-sm" style={{ color: "hsl(210,90%,65%)" }}>
                 {cfoAverages?.cfoI?.toFixed(4) ?? "—"}
               </span>
             </div>
             <div className="text-center">
-              <span className="text-xs font-bold text-muted-foreground block">CFO II</span>
+              <span className="text-xs font-bold block" style={{ color: "hsl(140,70%,50%)" }}>CFO II</span>
               <span className="font-extrabold text-sm" style={{ color: "hsl(140,70%,50%)" }}>
                 {cfoAverages?.cfoII?.toFixed(4) ?? "—"}
               </span>
             </div>
             <div className="text-center">
-              <span className="text-xs font-bold text-muted-foreground block">CFO III</span>
+              <span className="text-xs font-bold block" style={{ color: "hsl(43,96%,56%)" }}>CFO III</span>
               <span className="font-extrabold text-sm" style={{ color: "hsl(43,96%,56%)" }}>
                 {cfoAverages?.cfoIII?.toFixed(4) ?? "—"}
               </span>
