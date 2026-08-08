@@ -82,7 +82,7 @@ export const CFO_III_SUBJECTS: string[] = [
   "EPP – Estágio de Patrulhamento Tático",
   "Técnicas Gerais de Policiamento III",
   "POP III",
-  "Segurança Física de Instalações e Dignitários",
+  "Segurança Física de Instalações e Dignatários",
   "Defesa Territorial III",
   "Policiamento Ambiental",
   "Policiamento de Trânsito",
