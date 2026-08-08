@@ -25,13 +25,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { LayoutDashboard, ShieldCheck, Trophy, KeyRound, LogOut, Eye, GraduationCap, ScrollText, Lock, Unlock } from "lucide-react";
 
 const modulos = [
-  { to: "/cfo1", label: "CFO I", cor: "hsl(210,90%,65%)" },
-  { to: "/cfo2", label: "CFO II", cor: "hsl(140,70%,50%)" },
-  { to: "/cfo3", label: "CFO III", cor: "hsl(43,96%,56%)" },
-  { to: "/", label: "Classificação Geral", cor: "hsl(43,96%,56%)" },
+  { to: "/cfo1", label: "CFO I", cor: "hsl(210,90%,65%)", dourado: false },
+  { to: "/cfo2", label: "CFO II", cor: "hsl(140,70%,50%)", dourado: false },
+  { to: "/cfo3", label: "CFO III", cor: "hsl(43,96%,56%)", dourado: false },
+  { to: "/", label: "Classificação Geral", cor: "hsl(43,96%,56%)", dourado: true },
 ];
 
 export function AppSidebar() {
@@ -93,11 +94,18 @@ export function AppSidebar() {
                     <NavLink
                       to={m.to}
                       className={({ isActive }) =>
-                        isActive ? "font-semibold text-primary" : "text-foreground/80"
+                        cn(
+                          isActive ? "font-semibold text-primary" : "text-foreground/80",
+                          m.dourado && "gap-1"
+                        )
                       }
                     >
-                      <LayoutDashboard className="w-4 h-4" style={{ color: m.cor }} />
-                      <span>{m.label}</span>
+                      {m.dourado ? (
+                        <Trophy className="w-4 h-4" style={{ color: m.cor }} />
+                      ) : (
+                        <LayoutDashboard className="w-4 h-4" style={{ color: m.cor }} />
+                      )}
+                      <span className={cn(m.dourado && "texto-trofeu-dourado font-bold")}>{m.label}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

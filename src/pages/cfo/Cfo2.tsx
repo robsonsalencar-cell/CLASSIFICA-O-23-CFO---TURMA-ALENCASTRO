@@ -27,9 +27,13 @@ const Cfo2 = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Visão completa (ranking, Top 3, Carroceiros) só para o admin em "Visão Geral".
-  // Aluno comum, ou admin simulando um aluno específico, vê só o próprio resumo —
-  // nunca o nome ou nota de outro cadete.
-  const mostrarVisaoCompleta = (isAdmin && !viewingAsAlunoId) || (!isAdmin && config.ranking_publico);
+  // Aluno comum, ou admin simulando um aluno específico ("Visualizar como"), vê
+  // o ranking completo só se "Ranking p/ alunos" estiver liberado pelo admin —
+  // caso contrário, vê só o próprio resumo. Isso vale tanto para o aluno real
+  // quanto para o admin simulando, para que o toggle reflita corretamente na
+  // pré-visualização.
+  const emVisaoDeAluno = !isAdmin || Boolean(viewingAsAlunoId);
+  const mostrarVisaoCompleta = !emVisaoDeAluno || config.ranking_publico;
 
   const { students, loading, error, refetch, subjectsLaunched, launchedSubjects, allSubjects } =
     useAlunosModulo("notas_cfo2", MATERIAS_CFO2);

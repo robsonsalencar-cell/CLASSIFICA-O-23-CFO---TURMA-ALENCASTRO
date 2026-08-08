@@ -26,7 +26,13 @@ const ClassificacaoGeral = () => {
   const { isAdmin, viewingAsAlunoId } = useAuth();
   const { config } = useConfiguracaoTurma();
   useTemaModulo("tema-geral");
-  const mostrarVisaoCompleta = (isAdmin && !viewingAsAlunoId) || (!isAdmin && config.ranking_publico);
+  // Visão completa (ranking, Top 3) só para o admin em "Visão Geral". Aluno
+  // comum, ou admin simulando um aluno específico ("Visualizar como"), vê o
+  // ranking completo só se "Ranking p/ alunos" estiver liberado pelo admin —
+  // isso vale tanto para o aluno real quanto para o admin simulando, para que
+  // o toggle reflita corretamente na pré-visualização.
+  const emVisaoDeAluno = !isAdmin || Boolean(viewingAsAlunoId);
+  const mostrarVisaoCompleta = !emVisaoDeAluno || config.ranking_publico;
   const [selectedStudent, setSelectedStudent] = useState<DetailedStudent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
