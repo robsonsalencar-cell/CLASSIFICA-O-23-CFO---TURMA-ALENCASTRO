@@ -168,7 +168,7 @@ export function StudentDetailsModal({
                         <Progress
                           value={(d.vc_lista.reduce((a, b) => a + b, 0) / d.vc_lista.length) * 10}
                           className="flex-1 h-2"
-                          indicatorClassName="barra-trofeu-dourado"
+                          indicatorClassName={daGeral ? "barra-trofeu-dourado" : undefined}
                         />
                         <span className="w-16 text-right">{d.vc_lista.join(" / ")}</span>
                       </div>
@@ -179,7 +179,7 @@ export function StudentDetailsModal({
                         <Progress
                           value={d.vf * 10}
                           className="flex-1 h-2"
-                          indicatorClassName="barra-trofeu-dourado"
+                          indicatorClassName={daGeral ? "barra-trofeu-dourado" : undefined}
                         />
                         <span className="w-16 text-right">{d.vf.toFixed(4)}</span>
                       </div>
@@ -191,7 +191,7 @@ export function StudentDetailsModal({
                     <Progress
                       value={nota * 10}
                       className="flex-1 h-2"
-                      indicatorClassName="barra-trofeu-dourado"
+                      indicatorClassName={daGeral ? "barra-trofeu-dourado" : undefined}
                     />
                     <span className="w-16 text-right">{nota.toFixed(4)}</span>
                   </div>
