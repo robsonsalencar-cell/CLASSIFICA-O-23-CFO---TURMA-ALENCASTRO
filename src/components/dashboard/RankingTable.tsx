@@ -197,7 +197,7 @@ export const RankingTable = ({
                     <TableHead className="text-center font-extrabold text-base text-primary">CFO III</TableHead>
                   </>
                 )}
-                <TableHead className="text-center font-extrabold text-base text-primary">Média Final</TableHead>
+                <TableHead className="text-center font-extrabold text-base texto-trofeu-dourado">Média Final</TableHead>
                 {modo === "modulo" && (
                   <TableHead className="text-center font-extrabold text-base text-primary">Classificação</TableHead>
                 )}
@@ -231,7 +231,7 @@ export const RankingTable = ({
                             </TableCell>
                           </>
                         )}
-                        <TableCell className="text-center font-extrabold text-base text-primary">
+                        <TableCell className="text-center font-extrabold text-base texto-trofeu-dourado">
                           {student.mediaFinal.toFixed(4)}
                         </TableCell>
                         {modo === "modulo" && (
