@@ -89,11 +89,12 @@ Deno.serve(async (req) => {
 
     // Busca os alunos da TURMA EM FOCO que estão matriculados neste módulo
     // específico (um aluno que saiu do curso no meio não deve nem aparecer
-    // como opção de casamento de nome).
+    // como opção de casamento de nome). Não filtramos por role="aluno" —
+    // um admin/desenvolvedor que também é cadete matriculado (ex: o próprio
+    // criador do sistema) deve ser considerado igualmente.
     let queryAlunos = adminClient
       .from("profiles")
       .select("id, nome_completo")
-      .eq("role", "aluno")
       .eq("turma_id", turma_id);
 
     if (tabela && ["notas_cfo1", "notas_cfo2", "notas_cfo3"].includes(tabela)) {

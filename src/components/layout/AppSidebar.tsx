@@ -43,10 +43,11 @@ export function AppSidebar() {
 
   useEffect(() => {
     if (!isAdmin || !turmaAtualId) return;
+    // Não filtramos por role="aluno" — um admin/desenvolvedor que também é
+    // cadete matriculado deve poder ser selecionado aqui também.
     supabase
       .from("profiles")
       .select("id, nome_completo")
-      .eq("role", "aluno")
       .eq("turma_id", turmaAtualId)
       .order("nome_completo")
       .then(({ data }) => setAlunos(data ?? []));

@@ -53,10 +53,12 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
   useEffect(() => {
     if (!turmaAtualId) return;
     const colunaMatricula = `matriculado_${tabela.replace("notas_", "")}`;
+    // Não filtramos por role="aluno" — um admin/desenvolvedor que também é
+    // cadete matriculado (ex: o próprio criador do sistema) deve poder
+    // receber lançamento de nota igual a qualquer outro aluno.
     supabase
       .from("profiles")
       .select("id, nome_completo")
-      .eq("role", "aluno")
       .eq("turma_id", turmaAtualId)
       .eq(colunaMatricula, true)
       .order("nome_completo")
