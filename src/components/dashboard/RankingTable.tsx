@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Search, Download, RotateCcw, FileText, FileSpreadsheet, FileType } from "lucide-react";
 import { DetailedStudent } from "@/hooks/useGoogleSheets";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -197,7 +198,9 @@ export const RankingTable = ({
                     <TableHead className="text-center font-extrabold text-base text-primary">CFO III</TableHead>
                   </>
                 )}
-                <TableHead className="text-center font-extrabold text-base text-foreground">Média Final</TableHead>
+                <TableHead className={cn("text-center font-extrabold text-base", modo === "geral" ? "text-foreground" : "text-primary")}>
+                  Média Final
+                </TableHead>
                 {modo === "modulo" && (
                   <TableHead className="text-center font-extrabold text-base text-primary">Classificação</TableHead>
                 )}
@@ -231,7 +234,7 @@ export const RankingTable = ({
                             </TableCell>
                           </>
                         )}
-                        <TableCell className="text-center font-extrabold text-base text-foreground">
+                        <TableCell className={cn("text-center font-extrabold text-base", modo === "geral" ? "text-foreground" : "text-primary")}>
                           {student.mediaFinal.toFixed(4)}
                         </TableCell>
                         {modo === "modulo" && (
