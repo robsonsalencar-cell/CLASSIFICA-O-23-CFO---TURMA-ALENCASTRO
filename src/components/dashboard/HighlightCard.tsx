@@ -124,7 +124,7 @@ export const HighlightCard = ({
             </div>
             <div className="text-center">
               <span className="text-xs font-bold text-muted-foreground block">MÉDIA</span>
-              <span className="texto-trofeu-dourado font-extrabold text-sm">
+              <span className={cn("font-extrabold text-sm", getTextColor())}>
                 {mediaFinal.toFixed(4)}
               </span>
             </div>
@@ -135,7 +135,10 @@ export const HighlightCard = ({
           <span className="text-xs text-muted-foreground font-medium">
             Média Final
           </span>
-          <span className="texto-trofeu-dourado font-bold text-xl tracking-wide">
+          <span className={cn(
+            "font-bold text-xl tracking-wide",
+            getTextColor()
+          )}>
             {mediaFinal.toFixed(4)}
           </span>
         </div>
