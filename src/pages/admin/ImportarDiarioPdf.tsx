@@ -100,7 +100,23 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
       });
 
       if (error || (data as any)?.error) {
-        setErro((data as any)?.error ?? error?.message ?? "Erro desconhecido");
+        let mensagemErro = (data as any)?.error ?? error?.message ?? "Erro desconhecido";
+        // O supabase-js não lê automaticamente o corpo JSON quando a Edge
+        // Function retorna um status não-2xx — ele só expõe uma mensagem
+        // genérica em error.message. O corpo real (com a causa específica,
+        // ex: "ANTHROPIC_API_KEY não configurada") fica em error.context,
+        // que é o objeto Response bruto. Tentamos lê-lo aqui para mostrar
+        // a causa verdadeira ao admin em vez do erro genérico.
+        const contexto = (error as any)?.context;
+        if (contexto && typeof contexto.json === "function") {
+          try {
+            const corpo = await contexto.json();
+            if (corpo?.error) mensagemErro = corpo.error;
+          } catch {
+            // corpo não era JSON válido (ex: erro de rede/proxy) — mantém a mensagem genérica
+          }
+        }
+        setErro(mensagemErro);
         setProcessando(false);
         return;
       }
