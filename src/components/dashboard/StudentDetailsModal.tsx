@@ -127,7 +127,7 @@ export function StudentDetailsModal({
           <div className="rounded-lg bg-purple-500/10 border border-purple-500/20 p-3 text-center">
             <Award className="w-4 h-4 text-purple-400 mx-auto mb-1" />
             <p className="text-xs text-muted-foreground">Excelência</p>
-            <p className={cn("text-lg font-bold", excelentes > 0 ? "texto-trofeu-dourado" : "text-purple-400")}>
+            <p className={cn("text-lg font-bold", daGeral && excelentes > 0 ? "texto-trofeu-dourado" : "text-purple-400")}>
               {excelentes}/{materias.length}
             </p>
           </div>
@@ -153,7 +153,7 @@ export function StudentDetailsModal({
                     <span className="font-bold">{nota.toFixed(4)}</span>
                     <Badge
                       variant={c.variant}
-                      className={cn(c.label === "Excelente" && "texto-trofeu-dourado bg-transparent border border-primary/40 font-bold")}
+                      className={cn(daGeral && c.label === "Excelente" && "texto-trofeu-dourado bg-transparent border border-primary/40 font-bold")}
                     >
                       {c.label}
                     </Badge>
