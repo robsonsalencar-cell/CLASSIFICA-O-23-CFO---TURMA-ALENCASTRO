@@ -164,6 +164,26 @@
     animation: brilho-dourado 4s linear infinite;
   }
 
+  /* Mesmo efeito de brilho dourado corrido, só que aplicado ao preenchimento
+     de barras de progresso (Nota / VC / VF nos cards de notas individuais). */
+  .barra-trofeu-dourado {
+    background: linear-gradient(
+      90deg,
+      #a8720a 0%,
+      #ffe9a8 12%,
+      #ffd966 22%,
+      #fffbea 30%,
+      #ffd966 38%,
+      #f0b429 55%,
+      #a8720a 70%,
+      #ffe9a8 85%,
+      #a8720a 100%
+    );
+    background-size: 250% 100%;
+    animation: brilho-dourado 3s linear infinite;
+    box-shadow: 0 0 10px rgba(255, 200, 60, 0.5), inset 0 0 6px rgba(255, 255, 255, 0.25);
+  }
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;

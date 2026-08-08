@@ -165,14 +165,22 @@ export function StudentDetailsModal({
                     {d.vc_lista.length > 0 && (
                       <div className="flex items-center gap-2 text-xs">
                         <span className="w-8 text-muted-foreground">VC:</span>
-                        <Progress value={(d.vc_lista.reduce((a, b) => a + b, 0) / d.vc_lista.length) * 10} className="flex-1 h-2" />
+                        <Progress
+                          value={(d.vc_lista.reduce((a, b) => a + b, 0) / d.vc_lista.length) * 10}
+                          className="flex-1 h-2"
+                          indicatorClassName="barra-trofeu-dourado"
+                        />
                         <span className="w-16 text-right">{d.vc_lista.join(" / ")}</span>
                       </div>
                     )}
                     {d.vf != null && (
                       <div className="flex items-center gap-2 text-xs">
                         <span className="w-8 text-muted-foreground">VF:</span>
-                        <Progress value={d.vf * 10} className="flex-1 h-2" />
+                        <Progress
+                          value={d.vf * 10}
+                          className="flex-1 h-2"
+                          indicatorClassName="barra-trofeu-dourado"
+                        />
                         <span className="w-16 text-right">{d.vf.toFixed(4)}</span>
                       </div>
                     )}
@@ -180,7 +188,11 @@ export function StudentDetailsModal({
                 ) : (
                   <div className="flex items-center gap-2 text-xs">
                     <span className="w-8 text-muted-foreground">Nota:</span>
-                    <Progress value={nota * 10} className="flex-1 h-2" />
+                    <Progress
+                      value={nota * 10}
+                      className="flex-1 h-2"
+                      indicatorClassName="barra-trofeu-dourado"
+                    />
                     <span className="w-16 text-right">{nota.toFixed(4)}</span>
                   </div>
                 )}

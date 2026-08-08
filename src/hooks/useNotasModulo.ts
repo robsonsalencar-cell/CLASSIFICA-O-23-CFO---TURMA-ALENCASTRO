@@ -20,34 +20,44 @@ export interface NotaRow {
 
 /**
  * Lê as notas de um módulo.
- * - Aluno comum: RLS já garante que só vê as próprias linhas.
+ * - Aluno comum: RLS já garante que só vê as próprias linhas — a menos que
+ *   a turma esteja com "ranking_publico" ligado, aí vê a turma inteira.
  * - Admin em "Visão Geral": vê todos os alunos DA TURMA EM FOCO.
- * - Admin "simulando" um aluno: vê só as linhas daquele aluno.
+ * - Admin "simulando" um aluno: vê só as linhas daquele aluno — a menos que
+ *   a turma esteja com "ranking_publico" ligado, aí vê a turma inteira (pra
+ *   a pré-visualização bater com o que o aluno realmente veria).
  */
 export function useNotasModulo(tabela: TabelaModulo) {
   const { isAdmin } = useAuth();
   const effectiveAlunoId = useEffectiveAlunoId();
-  const { turmaAtualId } = useTurma();
+  const { turmaAtualId, turmaAtual } = useTurma();
   const [rows, setRows] = useState<NotaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const rankingPublicoLiberado = Boolean(turmaAtual?.ranking_publico);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
+    // Vê a turma inteira (nomes + notas de todos) quando: é admin em visão
+    // geral (sem simular ninguém), OU a turma está com ranking público
+    // liberado — nesse segundo caso vale tanto pro aluno real quanto pro
+    // admin simulando, pra pré-visualização bater com o que o aluno vê.
+    const verTurmaInteira = (isAdmin && !effectiveAlunoId) || rankingPublicoLiberado;
+
     let query = supabase
       .from(tabela)
       .select(
-        isAdmin
+        verTurmaInteira
           ? "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at, profiles(nome_completo)"
           : "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at"
       );
 
-    if (effectiveAlunoId) {
+    if (!verTurmaInteira && effectiveAlunoId) {
       query = query.eq("aluno_id", effectiveAlunoId);
-    } else if (isAdmin && turmaAtualId) {
-      // Visão geral do admin: só a turma selecionada no seletor.
+    } else if (verTurmaInteira && turmaAtualId) {
       // Busca primeiro os IDs dos alunos da turma (query simples e confiável),
       // depois filtra as notas por esses IDs — evita depender de filtro por
       // coluna de tabela relacionada, que tem comportamento inconsistente
@@ -88,7 +98,7 @@ export function useNotasModulo(tabela: TabelaModulo) {
       setRows(mapped);
     }
     setLoading(false);
-  }, [tabela, isAdmin, effectiveAlunoId, turmaAtualId]);
+  }, [tabela, isAdmin, effectiveAlunoId, turmaAtualId, rankingPublicoLiberado]);
 
   useEffect(() => {
     fetchData();
