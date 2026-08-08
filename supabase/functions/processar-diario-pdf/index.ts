@@ -1,16 +1,16 @@
 // Supabase Edge Function: processar-diario-pdf
 // Recebe um PDF de Diário de Classe (escaneado) + o nome da matéria, usa a
-// API da Anthropic (Claude, com visão) para EXTRAIR os dados da tabela
+// API do Google Gemini (com visão) para EXTRAIR os dados da tabela
 // (nome do aluno + notas de VC/VF), e devolve isso pro admin CONFERIR antes
 // de gravar qualquer coisa no banco — esta função NUNCA grava notas sozinha.
 //
 // Requer um segredo configurado no projeto Supabase:
-//   ANTHROPIC_API_KEY  (crie em https://console.anthropic.com/settings/keys —
-//   é uma conta separada da Claude.ai, com faturamento próprio por uso de API)
+//   GEMINI_API_KEY  (crie gratuitamente em https://aistudio.google.com/apikey —
+//   não precisa de cartão de crédito para o tier gratuito)
 //
 // Deploy:
 //   supabase functions deploy processar-diario-pdf
-//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-xxxxx
+//   supabase secrets set GEMINI_API_KEY=xxxxx
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -36,13 +36,13 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
 
-    if (!anthropicKey) {
+    if (!geminiKey) {
       return new Response(
         JSON.stringify({
           error:
-            "ANTHROPIC_API_KEY não configurada nos segredos do Supabase. Veja o comentário no topo deste arquivo.",
+            "GEMINI_API_KEY não configurada nos segredos do Supabase. Veja o comentário no topo deste arquivo.",
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -145,35 +145,33 @@ Regras importantes:
 - Se um aluno não tiver nenhuma nota lançada nessa matéria, não inclua ele na lista.
 - Não invente valores — se não conseguir ler algum número com certeza, use null nesse campo.`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": anthropicKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta": "pdfs-2024-09-25",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 8192,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "document",
-                source: { type: "base64", media_type: "application/pdf", data: pdf_base64 },
-              },
-              { type: "text", text: prompt },
-            ],
+    const modeloGemini = "gemini-2.5-flash";
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modeloGemini}:generateContent?key=${geminiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { inline_data: { mime_type: "application/pdf", data: pdf_base64 } },
+                { text: prompt },
+              ],
+            },
+          ],
+          generationConfig: {
+            maxOutputTokens: 8192,
+            temperature: 0,
           },
-        ],
-      }),
-    });
+        }),
+      }
+    );
 
     if (!response.ok) {
       const erroTexto = await response.text();
-      return new Response(JSON.stringify({ error: `Erro na API da Anthropic: ${erroTexto}` }), {
+      return new Response(JSON.stringify({ error: `Erro na API do Gemini: ${erroTexto}` }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -181,9 +179,11 @@ Regras importantes:
 
     const resultado = await response.json();
 
+    const candidato = resultado.candidates?.[0];
+
     // Detecta se a resposta foi cortada por atingir o limite de tokens —
     // nesse caso o JSON fica incompleto e não dá pra recuperar.
-    if (resultado.stop_reason === "max_tokens") {
+    if (candidato?.finishReason === "MAX_TOKENS") {
       return new Response(
         JSON.stringify({
           error:
@@ -193,7 +193,17 @@ Regras importantes:
       );
     }
 
-    const textoResposta = resultado.content?.map((b: any) => b.text ?? "").join("") ?? "";
+    if (!candidato) {
+      return new Response(
+        JSON.stringify({
+          error: `A IA não retornou nenhum resultado. Resposta bruta: ${JSON.stringify(resultado)}`,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const textoResposta =
+      candidato.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
 
     let extraido;
     try {
