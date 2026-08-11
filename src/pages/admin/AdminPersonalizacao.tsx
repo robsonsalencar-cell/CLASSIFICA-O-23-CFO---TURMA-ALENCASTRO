@@ -9,7 +9,15 @@ import { toast } from "@/hooks/use-toast";
 
 export function AdminPersonalizacao() {
   const { config, salvarTexto, enviarBrasao } = useConfiguracaoTurma();
-  const { turmas, turmaAtualId, setTurmaAtualId, criarTurma, atualizarTextoCabecalho, atualizarDadosBoletim } = useTurma();
+  const {
+    turmas,
+    turmaAtualId,
+    setTurmaAtualId,
+    criarTurma,
+    atualizarTextoCabecalho,
+    atualizarDadosBoletim,
+    atualizarComandanteApmcv,
+  } = useTurma();
 
   const [nomeTurma, setNomeTurma] = useState(config.nome_turma);
   const [subtitulo, setSubtitulo] = useState(config.subtitulo_turma);
@@ -30,6 +38,10 @@ export function AdminPersonalizacao() {
   const [respFuncao, setRespFuncao] = useState(config.responsavel_assinatura_funcao);
   const [salvandoBoletim, setSalvandoBoletim] = useState(false);
 
+  const [comandanteNome, setComandanteNome] = useState(config.comandante_apmcv_nome ?? "");
+  const [comandantePosto, setComandantePosto] = useState(config.comandante_apmcv_posto ?? "");
+  const [salvandoComandante, setSalvandoComandante] = useState(false);
+
   // Re-sincroniza os campos sempre que a turma EM FOCO mudar (ex: admin trocou
   // no seletor do menu lateral) — não só na primeira carga.
   useEffect(() => {
@@ -44,6 +56,8 @@ export function AdminPersonalizacao() {
     setRespNome(config.responsavel_assinatura_nome);
     setRespPosto(config.responsavel_assinatura_posto);
     setRespFuncao(config.responsavel_assinatura_funcao);
+    setComandanteNome(config.comandante_apmcv_nome ?? "");
+    setComandantePosto(config.comandante_apmcv_posto ?? "");
   }, [config.id]);
 
   const [novaTurmaNome, setNovaTurmaNome] = useState("");
@@ -94,6 +108,21 @@ export function AdminPersonalizacao() {
       toast({ title: "Erro ao salvar", description: error, variant: "destructive" });
     } else {
       toast({ title: "Dados do Boletim/Histórico atualizados" });
+    }
+  }
+
+  async function handleSalvarComandante() {
+    if (!turmaAtualId) return;
+    setSalvandoComandante(true);
+    const { error } = await atualizarComandanteApmcv(turmaAtualId, {
+      comandante_apmcv_nome: comandanteNome,
+      comandante_apmcv_posto: comandantePosto,
+    });
+    setSalvandoComandante(false);
+    if (error) {
+      toast({ title: "Erro ao salvar", description: error, variant: "destructive" });
+    } else {
+      toast({ title: "Comandante da APMCV atualizado" });
     }
   }
 
@@ -323,6 +352,43 @@ export function AdminPersonalizacao() {
               {salvandoBoletim && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <Save className="w-4 h-4 mr-2" />
               Salvar dados do Boletim
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-primary/30">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-primary" />
+            Comandante da APMCV (Histórico Escolar) — {config.nome_turma}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Assina o Histórico Escolar junto com o responsável acima. Como esse cargo troca de
+            titular com frequência, o nome/posto aparece em vermelho no Word gerado, pronto
+            para revisão de quem for assinar.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label>Nome</Label>
+              <Input value={comandanteNome} onChange={(e) => setComandanteNome(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Posto</Label>
+              <Input
+                value={comandantePosto}
+                onChange={(e) => setComandantePosto(e.target.value)}
+                placeholder="ex: Ten Cel PM"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleSalvarComandante} disabled={salvandoComandante}>
+              {salvandoComandante && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <Save className="w-4 h-4 mr-2" />
+              Salvar Comandante
             </Button>
           </div>
         </CardContent>
