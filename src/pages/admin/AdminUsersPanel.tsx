@@ -25,6 +25,7 @@ interface EdicaoState {
   nome_completo: string;
   email: string;
   cpf: string;
+  matricula: string;
   role: "aluno" | "admin" | "desenvolvedor";
   nova_senha: string;
 }
@@ -39,6 +40,7 @@ export function AdminUsersPanel() {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [cpf, setCpf] = useState("");
+  const [matriculaNovo, setMatriculaNovo] = useState("");
   const [senha, setSenha] = useState("");
   const [role, setRole] = useState<"aluno" | "admin">("aluno");
   const [criando, setCriando] = useState(false);
@@ -81,7 +83,15 @@ export function AdminUsersPanel() {
     }
     setCriando(true);
     const { data, error } = await supabase.functions.invoke("admin-create-user", {
-      body: { nome_completo: nome, email, cpf: cpf || null, senha_provisoria: senha, role, turma_id: turmaAtualId },
+      body: {
+        nome_completo: nome,
+        email,
+        cpf: cpf || null,
+        matricula: matriculaNovo || null,
+        senha_provisoria: senha,
+        role,
+        turma_id: turmaAtualId,
+      },
     });
     setCriando(false);
 
@@ -98,6 +108,7 @@ export function AdminUsersPanel() {
     setNome("");
     setEmail("");
     setCpf("");
+    setMatriculaNovo("");
     setSenha("");
     setRole("aluno");
     carregarPerfis();
@@ -109,6 +120,7 @@ export function AdminUsersPanel() {
       nome_completo: p.nome_completo,
       email: p.email,
       cpf: p.cpf ?? "",
+      matricula: p.matricula ?? "",
       role: p.role,
       nova_senha: "",
     });
@@ -129,6 +141,7 @@ export function AdminUsersPanel() {
         nome_completo: edicao.nome_completo,
         email: edicao.email,
         cpf: edicao.cpf || null,
+        matricula: edicao.matricula || null,
         role: edicao.role,
         nova_senha: edicao.nova_senha || undefined,
       },
@@ -180,7 +193,7 @@ export function AdminUsersPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
             <div className="space-y-1">
               <Label>Nome completo</Label>
               <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Cad PM Fulano" />
@@ -192,6 +205,10 @@ export function AdminUsersPanel() {
             <div className="space-y-1">
               <Label>CPF (opcional)</Label>
               <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" />
+            </div>
+            <div className="space-y-1">
+              <Label>Matrícula (opcional)</Label>
+              <Input value={matriculaNovo} onChange={(e) => setMatriculaNovo(e.target.value)} placeholder="ex: 23.0001.1" />
             </div>
             <div className="space-y-1">
               <Label>Senha provisória</Label>
@@ -213,7 +230,7 @@ export function AdminUsersPanel() {
                 <option value="admin">Administrador</option>
               </select>
             </div>
-            <div className="md:col-span-5 flex justify-end">
+            <div className="md:col-span-6 flex justify-end">
               <Button onClick={handleCriarUsuario} disabled={criando}>
                 {criando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Cadastrar aluno
@@ -247,6 +264,7 @@ export function AdminUsersPanel() {
                     <TableHead>Nome</TableHead>
                     <TableHead>E-mail</TableHead>
                     <TableHead>CPF</TableHead>
+                    <TableHead>Matrícula</TableHead>
                     <TableHead>Perfil</TableHead>
                     <TableHead className="w-32 text-right">Ações</TableHead>
                   </TableRow>
@@ -278,6 +296,14 @@ export function AdminUsersPanel() {
                                 className="h-8"
                                 value={edicao.cpf}
                                 onChange={(e) => setEdicao({ ...edicao, cpf: e.target.value })}
+                                placeholder="—"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                className="h-8"
+                                value={edicao.matricula}
+                                onChange={(e) => setEdicao({ ...edicao, matricula: e.target.value })}
                                 placeholder="—"
                               />
                             </TableCell>
@@ -318,6 +344,7 @@ export function AdminUsersPanel() {
                             <TableCell className="font-medium">{p.nome_completo}</TableCell>
                             <TableCell>{p.email}</TableCell>
                             <TableCell>{p.cpf ?? "—"}</TableCell>
+                            <TableCell>{p.matricula ?? "—"}</TableCell>
                             <TableCell>
                               <Badge variant={p.role === "aluno" ? "secondary" : "default"}>
                                 {p.role === "desenvolvedor" ? "Desenvolvedor" : p.role === "admin" ? "Administrador" : "Aluno"}
