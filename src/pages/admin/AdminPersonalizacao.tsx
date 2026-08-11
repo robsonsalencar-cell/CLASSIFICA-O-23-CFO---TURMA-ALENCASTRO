@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 
 export function AdminPersonalizacao() {
   const { config, salvarTexto, enviarBrasao } = useConfiguracaoTurma();
-  const { turmas, turmaAtualId, setTurmaAtualId, criarTurma, atualizarTextoCabecalho } = useTurma();
+  const { turmas, turmaAtualId, setTurmaAtualId, criarTurma, atualizarTextoCabecalho, atualizarDadosBoletim } = useTurma();
 
   const [nomeTurma, setNomeTurma] = useState(config.nome_turma);
   const [subtitulo, setSubtitulo] = useState(config.subtitulo_turma);
@@ -22,6 +22,14 @@ export function AdminPersonalizacao() {
   const [subtituloPagina, setSubtituloPagina] = useState(config.subtitulo_pagina);
   const [salvandoCabecalho, setSalvandoCabecalho] = useState(false);
 
+  const [anoLetivoCfo1, setAnoLetivoCfo1] = useState(config.ano_letivo_cfo1 ?? "");
+  const [anoLetivoCfo2, setAnoLetivoCfo2] = useState(config.ano_letivo_cfo2 ?? "");
+  const [anoLetivoCfo3, setAnoLetivoCfo3] = useState(config.ano_letivo_cfo3 ?? "");
+  const [respNome, setRespNome] = useState(config.responsavel_assinatura_nome);
+  const [respPosto, setRespPosto] = useState(config.responsavel_assinatura_posto);
+  const [respFuncao, setRespFuncao] = useState(config.responsavel_assinatura_funcao);
+  const [salvandoBoletim, setSalvandoBoletim] = useState(false);
+
   // Re-sincroniza os campos sempre que a turma EM FOCO mudar (ex: admin trocou
   // no seletor do menu lateral) — não só na primeira carga.
   useEffect(() => {
@@ -30,6 +38,12 @@ export function AdminPersonalizacao() {
     setTituloPaginaModulo(config.titulo_pagina_modulo);
     setTituloPaginaGeral(config.titulo_pagina_geral);
     setSubtituloPagina(config.subtitulo_pagina);
+    setAnoLetivoCfo1(config.ano_letivo_cfo1 ?? "");
+    setAnoLetivoCfo2(config.ano_letivo_cfo2 ?? "");
+    setAnoLetivoCfo3(config.ano_letivo_cfo3 ?? "");
+    setRespNome(config.responsavel_assinatura_nome);
+    setRespPosto(config.responsavel_assinatura_posto);
+    setRespFuncao(config.responsavel_assinatura_funcao);
   }, [config.id]);
 
   const [novaTurmaNome, setNovaTurmaNome] = useState("");
@@ -61,6 +75,25 @@ export function AdminPersonalizacao() {
       toast({ title: "Erro ao salvar cabeçalho", description: error, variant: "destructive" });
     } else {
       toast({ title: "Cabeçalho das páginas atualizado" });
+    }
+  }
+
+  async function handleSalvarBoletim() {
+    if (!turmaAtualId) return;
+    setSalvandoBoletim(true);
+    const { error } = await atualizarDadosBoletim(turmaAtualId, {
+      ano_letivo_cfo1: anoLetivoCfo1,
+      ano_letivo_cfo2: anoLetivoCfo2,
+      ano_letivo_cfo3: anoLetivoCfo3,
+      responsavel_assinatura_nome: respNome,
+      responsavel_assinatura_posto: respPosto,
+      responsavel_assinatura_funcao: respFuncao,
+    });
+    setSalvandoBoletim(false);
+    if (error) {
+      toast({ title: "Erro ao salvar", description: error, variant: "destructive" });
+    } else {
+      toast({ title: "Dados do Boletim/Histórico atualizados" });
     }
   }
 
@@ -241,6 +274,55 @@ export function AdminPersonalizacao() {
               {salvandoCabecalho && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <Save className="w-4 h-4 mr-2" />
               Salvar cabeçalho
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-primary/30">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-primary" />
+            Dados do Boletim/Histórico Escolar — {config.nome_turma}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Usado nos documentos oficiais exportados (Boletim Escolar e, futuramente, Histórico Escolar).
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label>Ano letivo — CFO I</Label>
+              <Input value={anoLetivoCfo1} onChange={(e) => setAnoLetivoCfo1(e.target.value)} placeholder="ex: 2023" />
+            </div>
+            <div className="space-y-1">
+              <Label>Ano letivo — CFO II</Label>
+              <Input value={anoLetivoCfo2} onChange={(e) => setAnoLetivoCfo2(e.target.value)} placeholder="ex: 2024" />
+            </div>
+            <div className="space-y-1">
+              <Label>Ano letivo — CFO III</Label>
+              <Input value={anoLetivoCfo3} onChange={(e) => setAnoLetivoCfo3(e.target.value)} placeholder="ex: 2025" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label>Responsável pela assinatura — Nome</Label>
+              <Input value={respNome} onChange={(e) => setRespNome(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Posto</Label>
+              <Input value={respPosto} onChange={(e) => setRespPosto(e.target.value)} placeholder="ex: 2º Ten PM" />
+            </div>
+            <div className="space-y-1">
+              <Label>Função</Label>
+              <Input value={respFuncao} onChange={(e) => setRespFuncao(e.target.value)} />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleSalvarBoletim} disabled={salvandoBoletim}>
+              {salvandoBoletim && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <Save className="w-4 h-4 mr-2" />
+              Salvar dados do Boletim
             </Button>
           </div>
         </CardContent>
