@@ -144,7 +144,13 @@ begin
     (select round(stddev_pop(media), 4) from ranked),
     (select max(media) from ranked),
     (select min(media) from ranked),
-    (select materias_lancadas::int from progresso);
+    -- Qualificado como progresso.materias_lancadas: sem o prefixo, o Postgres
+    -- reclama de "column reference is ambiguous" porque o nome da coluna do
+    -- CTE colide com o parâmetro OUT de mesmo nome do RETURNS TABLE desta
+    -- função (só acontece aqui porque esta função roda a query direto, sem
+    -- EXECUTE — em estatisticas_modulo, que monta a query como texto e roda
+    -- via EXECUTE format(...), a mesma colisão não ocorre).
+    (select progresso.materias_lancadas::int from progresso);
 end;
 $$;
 
