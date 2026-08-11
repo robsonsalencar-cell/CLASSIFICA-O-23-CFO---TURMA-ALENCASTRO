@@ -34,7 +34,9 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
   const { rows, loading, error, refetch, salvarNota, excluirNota } = useNotasModulo(tabela);
   const { turmaAtualId } = useTurma();
   const [alunos, setAlunos] = useState<AlunoOption[]>([]);
-  const [edits, setEdits] = useState<Record<string, { vc: string; vf: string; nota_final: string }>>({});
+  const [edits, setEdits] = useState<
+    Record<string, { vc: string; vf: string; nota_final: string; verif2aEpoca: string; media2aEpoca: string }>
+  >({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
   // filtros da tabela "Notas lançadas" — úteis pra conferir um diário
@@ -48,6 +50,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
   const [novoVc, setNovoVc] = useState(""); // aceita "8, 9, 7.5"
   const [novoVf, setNovoVf] = useState("");
   const [novaFinalManual, setNovaFinalManual] = useState<string | null>(null);
+  const [novoVerif2aEpoca, setNovoVerif2aEpoca] = useState("");
+  const [novoMedia2aEpoca, setNovoMedia2aEpoca] = useState("");
   const [salvandoNovo, setSalvandoNovo] = useState(false);
 
   useEffect(() => {
@@ -78,6 +82,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
         vc: (row.vc_lista ?? []).join(", "),
         vf: row.vf !== null ? String(row.vf) : "",
         nota_final: row.nota_final !== null ? String(row.nota_final) : "",
+        verif2aEpoca: row.verif_2a_epoca !== null ? String(row.verif_2a_epoca) : "",
+        media2aEpoca: row.media_2a_epoca !== null ? String(row.media_2a_epoca) : "",
       }
     );
   }
@@ -99,6 +105,11 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
     setEdits((prev) => ({ ...prev, [row.id]: { ...atual, nota_final: value } }));
   }
 
+  function handle2aEpocaChange(row: NotaRow, field: "verif2aEpoca" | "media2aEpoca", value: string) {
+    const atual = getEdicao(row);
+    setEdits((prev) => ({ ...prev, [row.id]: { ...atual, [field]: value } }));
+  }
+
   async function handleSalvarLinha(row: NotaRow) {
     setSavingId(row.id);
     const e = getEdicao(row);
@@ -108,6 +119,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
       vc_lista: parseListaVc(e.vc),
       vf: paraNumeroSeguro(e.vf),
       nota_final: paraNumeroSeguro(e.nota_final),
+      verif_2a_epoca: paraNumeroSeguro(e.verif2aEpoca),
+      media_2a_epoca: paraNumeroSeguro(e.media2aEpoca),
     });
     setSavingId(null);
     if (error) {
@@ -142,6 +155,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
       vc_lista: parseListaVc(novoVc),
       vf: paraNumeroSeguro(novoVf),
       nota_final: paraNumeroSeguro(novaFinalExibida),
+      verif_2a_epoca: paraNumeroSeguro(novoVerif2aEpoca),
+      media_2a_epoca: paraNumeroSeguro(novoMedia2aEpoca),
     });
     setSalvandoNovo(false);
     if (error) {
@@ -152,6 +167,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
       setNovoVc("");
       setNovoVf("");
       setNovaFinalManual(null);
+      setNovoVerif2aEpoca("");
+      setNovoMedia2aEpoca("");
     }
   }
 
@@ -175,7 +192,7 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
           />
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
             <div className="md:col-span-2 space-y-1">
               <Label>Aluno</Label>
               <Select value={novoAlunoId} onValueChange={setNovoAlunoId}>
@@ -224,7 +241,25 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
                 className="font-semibold"
               />
             </div>
-            <div className="md:col-span-6 flex justify-end">
+            <div className="space-y-1">
+              <Label>Verif. 2ª Época (opcional)</Label>
+              <Input
+                type="number"
+                step="0.0001"
+                value={novoVerif2aEpoca}
+                onChange={(e) => setNovoVerif2aEpoca(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Média 2ª Época (opcional)</Label>
+              <Input
+                type="number"
+                step="0.0001"
+                value={novoMedia2aEpoca}
+                onChange={(e) => setNovoMedia2aEpoca(e.target.value)}
+              />
+            </div>
+            <div className="md:col-span-8 flex justify-end">
               <Button onClick={handleNovoLancamento} disabled={salvandoNovo}>
                 {salvandoNovo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Lançar nota
@@ -287,6 +322,8 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
                     <TableHead className="w-40">VC (separe por vírgula)</TableHead>
                     <TableHead className="w-28">VF</TableHead>
                     <TableHead className="w-28">Nota final</TableHead>
+                    <TableHead className="w-28">Verif. 2ª Época</TableHead>
+                    <TableHead className="w-28">Média 2ª Época</TableHead>
                     <TableHead className="w-24 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -328,6 +365,24 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
                             value={e.nota_final}
                             onChange={(ev) => handleNotaFinalManual(row, ev.target.value)}
                             className="h-8 font-semibold"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            value={e.verif2aEpoca}
+                            onChange={(ev) => handle2aEpocaChange(row, "verif2aEpoca", ev.target.value)}
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            value={e.media2aEpoca}
+                            onChange={(ev) => handle2aEpocaChange(row, "media2aEpoca", ev.target.value)}
+                            className="h-8"
                           />
                         </TableCell>
                         <TableCell className="text-right space-x-1">
