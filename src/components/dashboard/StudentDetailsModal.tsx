@@ -11,10 +11,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { AlunoModulo } from "@/hooks/useAlunosModulo";
-import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
+import { useConfiguracaoTurma, useTurma } from "@/contexts/TurmaContext";
 import { exportarAlunoCSV, exportarAlunoPDF, exportarAlunoXLSX } from "@/utils/exportAluno";
 import { exportarBoletimPDF, exportarBoletimWord, exportarBoletimExcel } from "@/utils/exportBoletim";
+import {
+  exportarHistoricoWord,
+  exportarHistoricoExcel,
+  montarDisciplinasHistorico,
+  DadosExportacaoHistorico,
+} from "@/utils/exportHistorico";
+import { useDadosBiograficosAluno } from "@/hooks/useDadosBiograficosAluno";
+import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
+import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
+import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
+import { CARGA_HORARIA_CFO1, CARGA_HORARIA_CFO2, CARGA_HORARIA_CFO3 } from "@/config/cargaHorariaCfo";
+import { dataPorExtenso } from "@/utils/numeroExtenso";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 import { TrendingUp, TrendingDown, Award, AlertCircle, Download, FileText, FileSpreadsheet, FileDown, Loader2 } from "lucide-react";
 
 interface StudentDetailsModalProps {
@@ -41,11 +54,17 @@ export function StudentDetailsModal({
   isAdmin = false,
 }: StudentDetailsModalProps) {
   const { config } = useConfiguracaoTurma();
+  const { atribuirNumeroRegistroHistorico } = useTurma();
   const [boletimDialogAberto, setBoletimDialogAberto] = useState(false);
   const [boletimFormato, setBoletimFormato] = useState<"pdf" | "word" | "xlsx" | null>(null);
   const [boletimInicio, setBoletimInicio] = useState("");
   const [boletimTermino, setBoletimTermino] = useState("");
   const [gerandoBoletim, setGerandoBoletim] = useState(false);
+  const [historicoDialogAberto, setHistoricoDialogAberto] = useState(false);
+  const [historicoFormato, setHistoricoFormato] = useState<"word" | "xlsx" | null>(null);
+  const [historicoAlunoId, setHistoricoAlunoId] = useState<string | null>(null);
+  const [gerandoHistorico, setGerandoHistorico] = useState(false);
+  const { dados: bioAluno, loading: carregandoBio } = useDadosBiograficosAluno(historicoAlunoId);
   if (!student) return null;
 
   const daGeral = Boolean((student as any).cfoAverages);
@@ -113,6 +132,65 @@ export function StudentDetailsModal({
     setBoletimFormato(null);
   }
 
+  function abrirDialogoHistorico(formato: "word" | "xlsx") {
+    if (!student) return;
+    setHistoricoFormato(formato);
+    setHistoricoAlunoId((student as AlunoModulo).aluno_id);
+    setHistoricoDialogAberto(true);
+  }
+
+  async function gerarHistorico() {
+    if (!student || !historicoFormato || !bioAluno || !config.id) return;
+    setGerandoHistorico(true);
+    const alunoId = (student as AlunoModulo).aluno_id;
+    const { numero, error } = await atribuirNumeroRegistroHistorico(alunoId, config.id);
+    if (error || numero == null) {
+      toast({ title: "Erro ao gerar número de registro", description: error ?? "", variant: "destructive" });
+      setGerandoHistorico(false);
+      return;
+    }
+
+    const cfoAverages = (student as any).cfoAverages ?? {};
+    const dados: DadosExportacaoHistorico = {
+      nomeAluno: student.nome,
+      filiacaoPai: bioAluno.filiacao_pai,
+      filiacaoMae: bioAluno.filiacao_mae,
+      dataNascimento: bioAluno.data_nascimento
+        ? new Date(bioAluno.data_nascimento).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+        : null,
+      naturalidade: bioAluno.naturalidade,
+      matricula: bioAluno.matricula,
+      matriculaAcademia: bioAluno.matricula_academia,
+      rgPm: bioAluno.rg_pm,
+      escolaAnterior: bioAluno.escola_anterior,
+      anoConclusaoEnsinoMedio: bioAluno.ano_conclusao_ensino_medio,
+      disciplinasCfo1: montarDisciplinasHistorico(MATERIAS_CFO1, CARGA_HORARIA_CFO1, detalhado, "CFO I"),
+      disciplinasCfo2: montarDisciplinasHistorico(MATERIAS_CFO2, CARGA_HORARIA_CFO2, detalhado, "CFO II"),
+      disciplinasCfo3: montarDisciplinasHistorico(MATERIAS_CFO3, CARGA_HORARIA_CFO3, detalhado, "CFO III"),
+      anoLetivoCfo1: config.ano_letivo_cfo1,
+      anoLetivoCfo2: config.ano_letivo_cfo2,
+      anoLetivoCfo3: config.ano_letivo_cfo3,
+      mediaCfo1: cfoAverages.cfoI ?? null,
+      mediaCfo2: cfoAverages.cfoII ?? null,
+      mediaCfo3: cfoAverages.cfoIII ?? null,
+      mediaFinal: student.mediaFinal,
+      rank: student.rank,
+      numeroRegistro: numero,
+      comandanteNome: config.comandante_apmcv_nome,
+      comandantePosto: config.comandante_apmcv_posto,
+      responsavelNome: config.responsavel_assinatura_nome,
+      responsavelPosto: config.responsavel_assinatura_posto,
+      responsavelFuncao: config.responsavel_assinatura_funcao,
+      dataEmissao: dataPorExtenso(new Date()),
+    };
+
+    if (historicoFormato === "word") await exportarHistoricoWord(dados);
+    else exportarHistoricoExcel(dados);
+    setGerandoHistorico(false);
+    setHistoricoDialogAberto(false);
+    setHistoricoFormato(null);
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -138,6 +216,23 @@ export function StudentDetailsModal({
                       <FileText className="w-4 h-4 mr-2 text-red-500" /> PDF
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => abrirDialogoBoletim("xlsx")}>
+                      <FileSpreadsheet className="w-4 h-4 mr-2 text-green-500" /> Excel (.xlsx)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {isAdmin && daGeral && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <FileText className="w-4 h-4 mr-1" /> Exportar Histórico
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => abrirDialogoHistorico("word")}>
+                      <FileText className="w-4 h-4 mr-2 text-blue-500" /> Word (.docx)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => abrirDialogoHistorico("xlsx")}>
                       <FileSpreadsheet className="w-4 h-4 mr-2 text-green-500" /> Excel (.xlsx)
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -299,6 +394,32 @@ export function StudentDetailsModal({
               {gerandoBoletim && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Gerar {boletimFormato === "pdf" ? "PDF" : boletimFormato === "word" ? "Word" : "Excel"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={historicoDialogAberto} onOpenChange={(open) => !open && setHistoricoDialogAberto(false)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Exportar Histórico Escolar</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {carregandoBio ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  Campos biográficos ainda não cadastrados aparecem em vermelho no documento
+                  gerado, prontos para revisão antes da assinatura.
+                </p>
+                <Button onClick={gerarHistorico} disabled={gerandoHistorico} className="w-full">
+                  {gerandoHistorico && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Gerar {historicoFormato === "word" ? "Word" : "Excel"}
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
