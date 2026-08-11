@@ -296,6 +296,7 @@ const Cfo2 = () => {
         }}
         totalStudents={students.length}
         tituloModulo="CFO II"
+        isAdmin={isAdmin}
       />
     </div>
   );

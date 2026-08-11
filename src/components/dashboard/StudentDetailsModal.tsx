@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -12,8 +13,9 @@ import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { AlunoModulo } from "@/hooks/useAlunosModulo";
 import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
 import { exportarAlunoCSV, exportarAlunoPDF, exportarAlunoXLSX } from "@/utils/exportAluno";
+import { exportarBoletimPDF, exportarBoletimWord, exportarBoletimExcel } from "@/utils/exportBoletim";
 import { cn } from "@/lib/utils";
-import { TrendingUp, TrendingDown, Award, AlertCircle, Download, FileText, FileSpreadsheet, FileDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Award, AlertCircle, Download, FileText, FileSpreadsheet, FileDown, Loader2 } from "lucide-react";
 
 interface StudentDetailsModalProps {
   student: DetailedStudent | null;
@@ -21,6 +23,7 @@ interface StudentDetailsModalProps {
   onClose: () => void;
   totalStudents?: number;
   tituloModulo?: string;
+  isAdmin?: boolean;
 }
 
 function classificacao(media: number): { label: string; variant: "default" | "secondary" | "destructive" } {
@@ -35,8 +38,14 @@ export function StudentDetailsModal({
   onClose,
   totalStudents = 0,
   tituloModulo = "",
+  isAdmin = false,
 }: StudentDetailsModalProps) {
   const { config } = useConfiguracaoTurma();
+  const [boletimDialogAberto, setBoletimDialogAberto] = useState(false);
+  const [boletimFormato, setBoletimFormato] = useState<"pdf" | "word" | "xlsx" | null>(null);
+  const [boletimInicio, setBoletimInicio] = useState("");
+  const [boletimTermino, setBoletimTermino] = useState("");
+  const [gerandoBoletim, setGerandoBoletim] = useState(false);
   if (!student) return null;
 
   const daGeral = Boolean((student as any).cfoAverages);
@@ -67,6 +76,43 @@ export function StudentDetailsModal({
     else exportarAlunoCSV(dados);
   }
 
+  function anoLetivoDoModulo(): string | null {
+    if (tituloModulo === "CFO I") return config.ano_letivo_cfo1;
+    if (tituloModulo === "CFO II") return config.ano_letivo_cfo2;
+    if (tituloModulo === "CFO III") return config.ano_letivo_cfo3;
+    return null;
+  }
+
+  function abrirDialogoBoletim(formato: "pdf" | "word" | "xlsx") {
+    setBoletimFormato(formato);
+    setBoletimDialogAberto(true);
+  }
+
+  async function gerarBoletim() {
+    if (!student || !boletimFormato) return;
+    setGerandoBoletim(true);
+    const dados = {
+      nomeAluno: student.nome,
+      matricula: (student as AlunoModulo).matricula ?? null,
+      nomeTurma: config.nome_turma,
+      tituloModulo,
+      anoLetivo: anoLetivoDoModulo(),
+      inicio: boletimInicio,
+      termino: boletimTermino,
+      mediaFinalModulo: student.mediaFinal,
+      gradesDetalhado: detalhado,
+      responsavelNome: config.responsavel_assinatura_nome,
+      responsavelPosto: config.responsavel_assinatura_posto,
+      responsavelFuncao: config.responsavel_assinatura_funcao,
+    };
+    if (boletimFormato === "pdf") exportarBoletimPDF(dados);
+    else if (boletimFormato === "word") await exportarBoletimWord(dados);
+    else exportarBoletimExcel(dados);
+    setGerandoBoletim(false);
+    setBoletimDialogAberto(false);
+    setBoletimFormato(null);
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -77,6 +123,26 @@ export function StudentDetailsModal({
               <Badge>#{student.rank}</Badge>
             </DialogTitle>
             <div className="flex items-center gap-2">
+              {isAdmin && !daGeral && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <FileText className="w-4 h-4 mr-1" /> Exportar Boletim
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => abrirDialogoBoletim("word")}>
+                      <FileText className="w-4 h-4 mr-2 text-blue-500" /> Word (.docx)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => abrirDialogoBoletim("pdf")}>
+                      <FileText className="w-4 h-4 mr-2 text-red-500" /> PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => abrirDialogoBoletim("xlsx")}>
+                      <FileSpreadsheet className="w-4 h-4 mr-2 text-green-500" /> Excel (.xlsx)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -204,6 +270,38 @@ export function StudentDetailsModal({
           )}
         </div>
       </DialogContent>
+
+      <Dialog open={boletimDialogAberto} onOpenChange={(open) => !open && setBoletimDialogAberto(false)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Exportar Boletim — {tituloModulo}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">Início (opcional)</label>
+              <input
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+                value={boletimInicio}
+                onChange={(e) => setBoletimInicio(e.target.value)}
+                placeholder="ex: 03/2023"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm text-muted-foreground">Término (opcional)</label>
+              <input
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+                value={boletimTermino}
+                onChange={(e) => setBoletimTermino(e.target.value)}
+                placeholder="ex: 09/2023"
+              />
+            </div>
+            <Button onClick={gerarBoletim} disabled={gerandoBoletim} className="w-full">
+              {gerandoBoletim && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Gerar {boletimFormato === "pdf" ? "PDF" : boletimFormato === "word" ? "Word" : "Excel"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
