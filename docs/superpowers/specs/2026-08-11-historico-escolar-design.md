@@ -18,7 +18,8 @@ precisa de:
   23º e 24º CFO).
 - Texto legal institucional fixo (criação/credenciamento da APMCV, reconhecimento do CFO).
 - Conversão de nota final para texto por extenso, em português.
-- Classificação final do aluno (já existe em `classificacao_final`).
+- Classificação final do aluno (rank/média — calculados no cliente pela mesma lógica que
+  já alimenta `ClassificacaoGeral.tsx`, não por uma tabela).
 
 O usuário forneceu, para viabilizar esta fase:
 - `Planilha dados cfo 24 .xlsx` — dados biográficos de 67 cadetes do 24º CFO (nome, nome de
@@ -57,8 +58,8 @@ O usuário forneceu, para viabilizar esta fase:
 - Tela de upload/importação em lote de planilhas biográficas (self-service).
 - Qualquer mudança na fórmula de nota, ranking ou Classificação Geral.
 - PDF do Histórico.
-- Emissão de Histórico para módulo em andamento sem `classificacao_final` calculada (o aluno
-  precisa ter os 3 módulos com nota lançada — ver seção de pré-condição abaixo).
+- Emissão de Histórico para aluno sem nota lançada nos 3 módulos (ver seção de pré-condição
+  abaixo).
 
 ## Design
 
@@ -99,13 +100,24 @@ dedicado) que faz as duas escritas numa transação lógica (update do aluno + u
 Em exportações seguintes do mesmo aluno, o número já gravado é reaproveitado — nenhuma escrita
 nova acontece.
 
-### 3. Pré-condição para exportar
+### 3. Pré-condição para exportar — correção importante descoberta na implementação
 
-O botão "Exportar Histórico" só aparece quando o aluno tem `classificacao_final` calculada
-(mesma lógica que já alimenta a Classificação Geral) — ou seja, quando os 3 módulos (CFO I, II,
-III) têm nota lançada. Sem isso, não há `rank`, `media_final` nem `media_cfo1/2/3` para
-preencher o documento. Fica no bloco "Classificação Geral" do `StudentDetailsModal`, ao lado de
-onde hoje fica o botão de exportar ranking — visível só para `isAdmin`.
+A tabela `classificacao_final` **existe no schema mas não é escrita nem lida em nenhum lugar
+do código atual** — `ClassificacaoGeral.tsx` calcula rank/média final/médias por módulo
+inteiramente no cliente, combinando `useAlunosModulo("notas_cfo1"/"cfo2"/"cfo3", ...)` por
+`aluno_id`, e só entra nessa lista quem tem nota lançada nos 3 módulos (mesmo filtro que já
+protege o restante da tela). Usar `classificacao_final` seria ler uma fonte morta que pode
+divergir do que a tela realmente mostra — por isso o Histórico usa a **mesma computação já
+existente em `ClassificacaoGeral.tsx`**, não a tabela.
+
+Isso implica um ajuste extra de escopo: hoje o `students` calculado em `ClassificacaoGeral.tsx`
+**não guarda `aluno_id` nem `matricula`** no objeto final (só usa `aluno_id` como chave
+temporária do `Map` interno, depois descarta). É preciso propagar os dois campos até o objeto
+final, senão não dá pra saber de qual `profiles.id` buscar os dados biográficos.
+
+O botão "Exportar Histórico" só aparece quando o aluno está nessa lista (ou seja, tem nota nos
+3 módulos) — fica no bloco "Classificação Geral" do `StudentDetailsModal`, ao lado de onde hoje
+fica o botão de exportar ranking — visível só para `isAdmin`.
 
 ### 4. Carga horária por disciplina (novo `src/config/cargaHorariaCfo.ts`)
 
@@ -314,7 +326,7 @@ valor for `null`/vazio. Estrutura do documento (uma seção só):
 3. Três tabelas (uma por ano — cabeçalho "1º Ano CFO" / "2º Ano CFO" / "3º Ano CFO", com o ano
    letivo da turma ao lado), colunas Disciplina | Carga Horária | Média Final, uma linha de
    "Total da Carga Curricular e Média" ao final de cada tabela (soma de carga horária da lista +
-   média do ano vinda de `classificacao_final`).
+   média do ano vinda de `cfoAverages.cfoI/II/III`).
 4. "Registro nº: [numeroRegistro]".
 5. "Nota de Aprovação: [mediaFinal.toFixed(3)] ([notaPorExtenso(mediaFinal)])".
 6. "Classificação: [rank]º Lugar".
@@ -334,20 +346,31 @@ Boletim, espaços viram `_`).
 
 ### 8. Hook/lógica de carregamento dos dados
 
-Novo hook `useDadosHistorico(alunoId: string)` (em `src/hooks/`), que:
-1. Busca o profile do aluno (todos os campos novos + `matricula`, `nome_completo`).
-2. Busca `classificacao_final` do aluno (`rank`, `media_final`, `media_cfo1/2/3`).
-3. Busca as notas de `notas_cfo1/2/3` do aluno (`materia`, `nota_final`).
-4. Monta `disciplinasCfo1/2/3` cruzando `MATERIAS_CFO1/2/3` (ordem oficial de exibição) com
-   `CARGA_HORARIA_CFO1/2/3` (carga horária) e as notas buscadas (média final; `null` se a
-   matéria ainda não tem nota lançada — mesmo tratamento visual "vermelho + `______`" que os
-   outros campos ausentes, para consistência).
-5. Retorna `{ dados: DadosExportacaoHistorico | null, loading, erro }`.
+`ClassificacaoGeral.tsx` passa a incluir `aluno_id` e `matricula` no objeto `DetailedStudent`
+que já monta hoje (seção 3), junto de `cfoAverages` e `gradesDetalhado` (essas duas continuam
+existindo do jeito que já existem — reaproveitadas, não recalculadas de novo).
 
-O botão "Exportar Histórico" no `StudentDetailsModal` chama esse hook (sob demanda, ao abrir o
-modal de exportação, igual ao padrão já usado pro Boletim) e, antes de gerar o arquivo, dispara
-a atribuição de `numero_registro_historico` (seção 2) via uma função nova em `TurmaContext`
-(`atribuirNumeroRegistroHistorico(alunoId, turmaId)`), só se o campo ainda estiver `null`.
+Novo hook `useDadosBiograficosAluno(alunoId: string | null)` (em `src/hooks/`), que só busca o
+profile do aluno (campos novos: `rg_pm`, `filiacao_pai/mae`, `naturalidade`, `data_nascimento`,
+`matricula_academia`, `escola_anterior`, `ano_conclusao_ensino_medio`,
+`numero_registro_historico` + os já existentes `nome_completo`, `matricula`) — chamado sob
+demanda, quando o modal de exportação do Histórico abre.
+
+Montagem final de `DadosExportacaoHistorico` acontece dentro do próprio `StudentDetailsModal`
+(mesmo padrão de `gerarBoletim`, função `gerarHistorico`), cruzando:
+- Dados biográficos (`useDadosBiograficosAluno`).
+- `rank`, `mediaFinal`, `cfoAverages.cfoI/II/III` — já vêm prontos no `student` recebido (é o
+  mesmo objeto de `ClassificacaoGeral.tsx`, seção 3).
+- `disciplinasCfo1/2/3` — cruzando `MATERIAS_CFO1/2/3` (ordem oficial de exibição) com
+  `CARGA_HORARIA_CFO1/2/3` (carga horária) e `gradesDetalhado` do aluno, cujas chaves hoje têm
+  o sufixo `" (CFO I)"`/`" (CFO II)"`/`" (CFO III)"` (ver seção 3 de
+  `ClassificacaoGeral.tsx`) — o cruzamento busca `` `${materia} (CFO I)` `` etc. em vez da
+  matéria pura. Nota `null` (matéria sem lançamento) recebe o mesmo tratamento visual
+  "vermelho + `______`" que os outros campos ausentes.
+
+Antes de gerar o arquivo, dispara a atribuição de `numero_registro_historico` (seção 2) via uma
+função nova em `TurmaContext` (`atribuirNumeroRegistroHistorico(alunoId, turmaId)`), só se o
+campo ainda estiver `null`.
 
 ### 9. Import dos dados do 24º CFO
 
@@ -372,8 +395,9 @@ Sem suíte de testes automatizados no projeto (mesmo padrão da Fase 1) — veri
    conferir que aparecem em vermelho com `______`, sem quebrar a geração do documento.
 3. Exportar duas vezes o mesmo aluno — conferir que o número de registro não muda na segunda
    vez.
-4. Exportar de um aluno sem `classificacao_final` (módulo em aberto) — conferir que o botão
-   não aparece ou mostra aviso, sem gerar documento incompleto.
+4. Exportar de um aluno sem nota lançada nos 3 módulos — conferir que o botão não aparece ou
+   mostra aviso, sem gerar documento incompleto (esse aluno nem entra na lista `students` de
+   `ClassificacaoGeral.tsx`, então o modal dele nunca chega a ter o botão).
 5. Conferir que os totais de carga horária por ano batem com `CARGA HORÁRIA TOTAL DO CFO
    I/II/III` da matriz curricular (1430 / 1230 / 1300... nota: a matriz inclui "Atividades
    Educacionais Interdisciplinares", que **não** faz parte de `MATERIAS_CFO1/2/3` nem tem nota
