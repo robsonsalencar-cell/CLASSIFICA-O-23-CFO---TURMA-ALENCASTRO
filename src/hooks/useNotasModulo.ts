@@ -13,9 +13,12 @@ export interface NotaRow {
   vc_lista: number[] | null;
   vf: number | null;
   nota_final: number | null;
+  verif_2a_epoca: number | null;
+  media_2a_epoca: number | null;
   updated_at: string;
   // preenchido via join manual com profiles, para exibição no admin
   aluno_nome?: string;
+  aluno_matricula?: string | null;
 }
 
 /**
@@ -51,8 +54,8 @@ export function useNotasModulo(tabela: TabelaModulo) {
       .from(tabela)
       .select(
         verTurmaInteira
-          ? "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at, profiles(nome_completo)"
-          : "id, aluno_id, materia, vc, vc_lista, vf, nota_final, updated_at"
+          ? "id, aluno_id, materia, vc, vc_lista, vf, nota_final, verif_2a_epoca, media_2a_epoca, updated_at, profiles(nome_completo, matricula)"
+          : "id, aluno_id, materia, vc, vc_lista, vf, nota_final, verif_2a_epoca, media_2a_epoca, updated_at"
       );
 
     if (!verTurmaInteira && effectiveAlunoId) {
@@ -94,6 +97,7 @@ export function useNotasModulo(tabela: TabelaModulo) {
       const mapped = (data ?? []).map((r: any) => ({
         ...r,
         aluno_nome: r.profiles?.nome_completo,
+        aluno_matricula: r.profiles?.matricula ?? null,
       }));
       setRows(mapped);
     }
@@ -111,6 +115,8 @@ export function useNotasModulo(tabela: TabelaModulo) {
     vc_lista?: number[] | null;
     vf?: number | null;
     nota_final?: number | null;
+    verif_2a_epoca?: number | null;
+    media_2a_epoca?: number | null;
   }) {
     const { error } = await supabase
       .from(tabela)
