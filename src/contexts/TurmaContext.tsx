@@ -17,6 +17,9 @@ export interface Turma {
   responsavel_assinatura_nome: string;
   responsavel_assinatura_posto: string;
   responsavel_assinatura_funcao: string;
+  comandante_apmcv_nome: string | null;
+  comandante_apmcv_posto: string | null;
+  proximo_numero_registro_historico: number;
   created_at: string;
 }
 
@@ -48,6 +51,14 @@ interface TurmaContextValue {
       responsavel_assinatura_funcao: string;
     }
   ) => Promise<{ error: string | null }>;
+  atualizarComandanteApmcv: (
+    id: string,
+    dados: { comandante_apmcv_nome: string; comandante_apmcv_posto: string }
+  ) => Promise<{ error: string | null }>;
+  atribuirNumeroRegistroHistorico: (
+    alunoId: string,
+    turmaId: string
+  ) => Promise<{ numero: number | null; error: string | null }>;
 }
 
 const TURMA_PADRAO: Turma = {
@@ -65,6 +76,9 @@ const TURMA_PADRAO: Turma = {
   responsavel_assinatura_nome: "Matheus Vitor Xavier Moraes Pereira",
   responsavel_assinatura_posto: "2º Ten PM",
   responsavel_assinatura_funcao: "Gerente Subalterno da Secretaria de Registros Acadêmicos",
+  comandante_apmcv_nome: null,
+  comandante_apmcv_posto: null,
+  proximo_numero_registro_historico: 1,
   created_at: new Date().toISOString(),
 };
 
@@ -174,6 +188,46 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  async function atualizarComandanteApmcv(
+    id: string,
+    dados: { comandante_apmcv_nome: string; comandante_apmcv_posto: string }
+  ) {
+    const { error } = await supabase.from("turmas").update(dados).eq("id", id);
+    if (!error) await carregar();
+    return { error: error?.message ?? null };
+  }
+
+  async function atribuirNumeroRegistroHistorico(alunoId: string, turmaId: string) {
+    const { data: alunoAtual, error: alunoError } = await supabase
+      .from("profiles")
+      .select("numero_registro_historico")
+      .eq("id", alunoId)
+      .single();
+    if (alunoError) return { numero: null, error: alunoError.message };
+    if (alunoAtual.numero_registro_historico != null) {
+      return { numero: alunoAtual.numero_registro_historico as number, error: null };
+    }
+
+    const turma = turmas.find((t) => t.id === turmaId);
+    const proximo = turma?.proximo_numero_registro_historico ?? 1;
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ numero_registro_historico: proximo })
+      .eq("id", alunoId);
+    if (profileError) return { numero: null, error: profileError.message };
+
+    const { error: turmaError } = await supabase
+      .from("turmas")
+      .update({ proximo_numero_registro_historico: proximo + 1 })
+      .eq("id", turmaId);
+    // O número já foi gravado no aluno mesmo se este update falhar — só o
+    // contador da turma ficaria parado; próxima exportação reusaria o mesmo
+    // número. Risco aceito (painel de uso único, só admin exporta).
+    await carregar();
+    return { numero: proximo, error: turmaError?.message ?? null };
+  }
+
   return (
     <TurmaContext.Provider
       value={{
@@ -189,6 +243,8 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
         enviarBrasaoTurma,
         alternarRankingPublico,
         atualizarDadosBoletim,
+        atualizarComandanteApmcv,
+        atribuirNumeroRegistroHistorico,
       }}
     >
       {children}
