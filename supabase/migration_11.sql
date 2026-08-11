@@ -69,6 +69,15 @@ begin
 end;
 $$;
 
+-- DROP necessário: a versão ao vivo desta função no banco divergiu para as
+-- colunas `sua_media`/`sua_posicao` (renomeadas durante uma correção manual
+-- anterior do erro de coluna ambígua). O Postgres não deixa `CREATE OR
+-- REPLACE FUNCTION` renomear colunas de retorno existentes — só adicionar
+-- novas no final — por isso o DROP force a recriação com os nomes corretos
+-- (`minha_media`/`minha_posicao`, o padrão usado em todo o resto do projeto,
+-- inclusive em estatisticas_modulo).
+drop function if exists public.estatisticas_classificacao_geral(uuid, uuid);
+
 create or replace function public.estatisticas_classificacao_geral(p_aluno_id uuid default null, p_turma_id uuid default null)
 returns table (
   minha_media numeric,
