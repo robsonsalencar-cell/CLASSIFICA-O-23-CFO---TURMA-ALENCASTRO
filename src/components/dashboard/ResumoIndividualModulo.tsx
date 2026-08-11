@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useEstatisticasModulo } from "@/hooks/useEstatisticasModulo";
 import { useNotasModulo, TabelaModulo } from "@/hooks/useNotasModulo";
-import { Loader2, Medal, Target, TrendingUp, Users } from "lucide-react";
+import { BookOpen, Loader2, Medal, Target, TrendingUp, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -12,9 +12,13 @@ interface Props {
   // passe undefined em tabelaNotas — a lista de matérias não será exibida.
   tabelaNotas?: TabelaModulo;
   tituloModulo: string;
+  // Total de matérias do módulo (ou soma dos 3 módulos, na Classificação
+  // Geral) — denominador do card "Matérias Avaliadas". É um número estático
+  // (tamanho da lista oficial de matérias), não vem do banco.
+  totalMaterias: number;
 }
 
-export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Props) {
+export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo, totalMaterias }: Props) {
   const { dados, loading: loadingStats } = useEstatisticasModulo(tabela);
   const { rows, loading: loadingNotas } = useNotasModulo(tabelaNotas ?? ("notas_cfo1" as TabelaModulo));
 
@@ -62,7 +66,15 @@ export function ResumoIndividualModulo({ tabela, tabelaNotas, tituloModulo }: Pr
         <p className="text-sm text-muted-foreground mt-2">de {dados?.total_alunos ?? 0} alunos</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <KPICard
+          title="Matérias Avaliadas"
+          value={`${dados?.materias_lancadas ?? 0}/${totalMaterias}`}
+          subtitle="Progresso do curso"
+          variant="success"
+          icon={<BookOpen className="w-4 h-4" />}
+          tooltip={`${dados?.materias_lancadas ?? 0} matérias já tiveram notas lançadas de um total de ${totalMaterias}`}
+        />
         <KPICard
           title="Minha média"
           value={dados?.minha_media != null ? dados.minha_media.toFixed(4) : "—"}

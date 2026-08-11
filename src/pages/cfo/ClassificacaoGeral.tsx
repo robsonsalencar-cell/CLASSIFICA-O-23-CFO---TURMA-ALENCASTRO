@@ -165,7 +165,7 @@ const ClassificacaoGeral = () => {
     return (
       <div className="min-h-screen bg-background tema-geral">
         {header}
-        <ResumoIndividualModulo tabela="geral" tituloModulo="Classificação Geral" />
+        <ResumoIndividualModulo tabela="geral" tituloModulo="Classificação Geral" totalMaterias={totalMaterias} />
       </div>
     );
   }

@@ -119,7 +119,7 @@ const Cfo2 = () => {
     return (
       <div className="min-h-screen bg-background tema-cfo1">
         {header}
-        <ResumoIndividualModulo tabela="notas_cfo2" tabelaNotas="notas_cfo2" tituloModulo="CFO II" />
+        <ResumoIndividualModulo tabela="notas_cfo2" tabelaNotas="notas_cfo2" tituloModulo="CFO II" totalMaterias={allSubjects.length} />
       </div>
     );
   }

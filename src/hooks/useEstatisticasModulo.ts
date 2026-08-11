@@ -12,6 +12,7 @@ export interface EstatisticasModulo {
   desvio_padrao: number;
   maior_media: number;
   menor_media: number;
+  materias_lancadas: number;
 }
 
 /**
