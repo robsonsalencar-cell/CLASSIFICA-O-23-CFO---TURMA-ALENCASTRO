@@ -28,6 +28,12 @@ encontre os dados intactos.
   cross-turma pedido no item 1 aproveita isso quase pronto — só falta uma função nova para a
   lista "nome + média final" do Ranking Completo (que hoje só existe via `notas_cfoN`,
   protegida por RLS linha-a-linha).
+- **`admin-create-user`/`admin-update-user` (Edge Functions) bypassam RLS inteiramente** — usam
+  o cliente `service_role`. A checagem de permissão hoje é só `role in ('admin',
+  'desenvolvedor')`, sem olhar turma nenhuma. Mudar só a RLS não teria efeito nenhum nesses dois
+  caminhos (cadastro de aluno, edição de perfil/papel) — as duas funções também precisam chamar
+  `pode_configurar_turma()` explicitamente, passando o id de quem chamou (não têm `auth.uid()`
+  disponível, por não terem sessão).
 - **`classificacao_final` continua sem uso** (achado já registrado na spec do Histórico
   Escolar) — as policies dela serão atualizadas só por consistência, não porque algo dependa
   disso.
@@ -109,7 +115,7 @@ $$;
 
 -- Edição de NOTAS/classificação — nunca tem janela de bootstrap. Só o dono oficial da turma
 -- (ou institucional/dev, respeitando finalização).
-create or replace function public.pode_editar_turma(p_turma_id uuid)
+create or replace function public.pode_editar_turma(p_turma_id uuid, p_usuario_id uuid default auth.uid())
 returns boolean language plpgsql security definer set search_path = public stable as $$
 declare
   v_role public.app_role;
@@ -117,7 +123,7 @@ declare
   v_finalizada boolean;
   v_autorizada boolean;
 begin
-  select role, turma_id into v_role, v_minha_turma from public.profiles where id = auth.uid();
+  select role, turma_id into v_role, v_minha_turma from public.profiles where id = p_usuario_id;
   if v_role = 'desenvolvedor' then return true; end if;
 
   select finalizada, autorizacao_institucional into v_finalizada, v_autorizada
@@ -137,12 +143,12 @@ $$;
 
 -- Configuração (perfis, matrícula, papel, dados da turma) — tem janela de bootstrap: qualquer
 -- admin pode configurar uma turma que AINDA não tem admin oficial nomeado.
-create or replace function public.pode_configurar_turma(p_turma_id uuid)
+create or replace function public.pode_configurar_turma(p_turma_id uuid, p_usuario_id uuid default auth.uid())
 returns boolean language plpgsql security definer set search_path = public stable as $$
 declare
   v_tem_admin_oficial boolean;
 begin
-  if public.pode_editar_turma(p_turma_id) then return true; end if;
+  if public.pode_editar_turma(p_turma_id, p_usuario_id) then return true; end if;
 
   select exists (
     select 1 from public.profiles where turma_id = p_turma_id and role = 'admin'
@@ -150,7 +156,7 @@ begin
 
   return (
     not v_tem_admin_oficial
-    and exists (select 1 from public.profiles where id = auth.uid() and role in ('admin', 'admin_institucional', 'desenvolvedor'))
+    and exists (select 1 from public.profiles where id = p_usuario_id and role in ('admin', 'admin_institucional', 'desenvolvedor'))
   );
 end;
 $$;
