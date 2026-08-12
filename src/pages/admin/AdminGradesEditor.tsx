@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Save, Trash2, PlusCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useTurma } from "@/contexts/TurmaContext";
+import { usePermissoesTurma } from "@/hooks/usePermissoesTurma";
 import { ImportarDiarioPdf } from "@/pages/admin/ImportarDiarioPdf";
 
 interface AlunoOption {
@@ -33,6 +34,7 @@ interface Props {
 export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props) {
   const { rows, loading, error, refetch, salvarNota, excluirNota } = useNotasModulo(tabela);
   const { turmaAtualId } = useTurma();
+  const { podeEditarNotas } = usePermissoesTurma(turmaAtualId);
   const [alunos, setAlunos] = useState<AlunoOption[]>([]);
   const [edits, setEdits] = useState<
     Record<string, { vc: string; vf: string; nota_final: string; verif2aEpoca: string; media2aEpoca: string }>
@@ -174,6 +176,12 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
 
   return (
     <div className="space-y-6">
+      {!podeEditarNotas && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
+          Você não tem permissão para editar notas desta turma agora (turma finalizada, ou você
+          não é o administrador oficial dela).
+        </div>
+      )}
       <Card className="border-primary/30">
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -260,7 +268,7 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
               />
             </div>
             <div className="md:col-span-8 flex justify-end">
-              <Button onClick={handleNovoLancamento} disabled={salvandoNovo}>
+              <Button onClick={handleNovoLancamento} disabled={!podeEditarNotas || salvandoNovo}>
                 {salvandoNovo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Lançar nota
               </Button>
@@ -390,7 +398,7 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
                             size="icon"
                             variant="ghost"
                             onClick={() => handleSalvarLinha(row)}
-                            disabled={savingId === row.id}
+                            disabled={!podeEditarNotas || savingId === row.id}
                             title="Salvar"
                           >
                             {savingId === row.id ? (
@@ -399,7 +407,13 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
                               <Save className="w-4 h-4 text-success" />
                             )}
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => handleExcluir(row.id)} title="Excluir">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleExcluir(row.id)}
+                            disabled={!podeEditarNotas}
+                            title="Excluir"
+                          >
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </TableCell>
