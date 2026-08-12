@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useConfiguracaoTurma, useTurma } from "@/contexts/TurmaContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +19,11 @@ export function AdminPersonalizacao() {
     atualizarTextoCabecalho,
     atualizarDadosBoletim,
     atualizarComandanteApmcv,
+    finalizarTurma,
+    autorizarAdminInstitucional,
+    transferirAdminInstitucional,
   } = useTurma();
+  const { isAdminInstitucional, isDeveloper } = useAuth();
 
   const [nomeTurma, setNomeTurma] = useState(config.nome_turma);
   const [subtitulo, setSubtitulo] = useState(config.subtitulo_turma);
@@ -41,6 +47,22 @@ export function AdminPersonalizacao() {
   const [comandanteNome, setComandanteNome] = useState(config.comandante_apmcv_nome ?? "");
   const [comandantePosto, setComandantePosto] = useState(config.comandante_apmcv_posto ?? "");
   const [salvandoComandante, setSalvandoComandante] = useState(false);
+
+  const [candidatosInstitucional, setCandidatosInstitucional] = useState<{ id: string; nome_completo: string }[]>([]);
+  const [novoInstitucionalId, setNovoInstitucionalId] = useState("");
+  const [transferindo, setTransferindo] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
+  const [autorizando, setAutorizando] = useState(false);
+
+  useEffect(() => {
+    if (!isAdminInstitucional && !isDeveloper) return;
+    supabase
+      .from("profiles")
+      .select("id, nome_completo")
+      .in("role", ["admin", "aluno"])
+      .order("nome_completo")
+      .then(({ data }) => setCandidatosInstitucional(data ?? []));
+  }, [isAdminInstitucional, isDeveloper]);
 
   // Re-sincroniza os campos sempre que a turma EM FOCO mudar (ex: admin trocou
   // no seletor do menu lateral) — não só na primeira carga.
@@ -123,6 +145,46 @@ export function AdminPersonalizacao() {
       toast({ title: "Erro ao salvar", description: error, variant: "destructive" });
     } else {
       toast({ title: "Comandante da APMCV atualizado" });
+    }
+  }
+
+  async function handleFinalizarTurma(valor: boolean) {
+    if (!turmaAtualId) return;
+    setFinalizando(true);
+    const { error } = await finalizarTurma(turmaAtualId, valor);
+    setFinalizando(false);
+    if (error) {
+      toast({ title: "Erro ao mudar status da turma", description: error, variant: "destructive" });
+    } else {
+      toast({ title: valor ? "Turma marcada como finalizada" : "Turma reaberta" });
+    }
+  }
+
+  async function handleAutorizarInstitucional(valor: boolean) {
+    if (!turmaAtualId) return;
+    setAutorizando(true);
+    const { error } = await autorizarAdminInstitucional(turmaAtualId, valor);
+    setAutorizando(false);
+    if (error) {
+      toast({ title: "Erro ao autorizar", description: error, variant: "destructive" });
+    } else {
+      toast({ title: valor ? "Admin institucional autorizado nesta turma" : "Autorização revogada" });
+    }
+  }
+
+  async function handleTransferirInstitucional() {
+    if (!novoInstitucionalId) {
+      toast({ title: "Escolha quem vai assumir", variant: "destructive" });
+      return;
+    }
+    setTransferindo(true);
+    const { error } = await transferirAdminInstitucional(novoInstitucionalId);
+    setTransferindo(false);
+    if (error) {
+      toast({ title: "Erro ao transferir", description: error, variant: "destructive" });
+    } else {
+      toast({ title: "Função institucional transferida" });
+      setNovoInstitucionalId("");
     }
   }
 
@@ -393,6 +455,92 @@ export function AdminPersonalizacao() {
           </div>
         </CardContent>
       </Card>
+
+      {(isAdminInstitucional || isDeveloper) && (
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-primary" />
+              Ciclo de vida da turma — {config.nome_turma}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Turma finalizada fica travada — ninguém edita notas, perfis ou dados dela, exceto
+              o desenvolvedor (ou quem ele autorizar pontualmente aqui embaixo).
+            </p>
+            <div className="flex items-center justify-between rounded-md border border-border p-3">
+              <span className="text-sm font-medium">
+                Status: {config.finalizada ? "Finalizada (travada)" : "Em andamento"}
+              </span>
+              <Button
+                variant={config.finalizada ? "outline" : "destructive"}
+                size="sm"
+                onClick={() => handleFinalizarTurma(!config.finalizada)}
+                disabled={finalizando}
+              >
+                {finalizando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {config.finalizada ? "Reabrir turma" : "Finalizar turma"}
+              </Button>
+            </div>
+            {isDeveloper && config.finalizada && (
+              <div className="flex items-center justify-between rounded-md border border-border p-3">
+                <span className="text-sm font-medium">
+                  Admin institucional pode editar mesmo finalizada:{" "}
+                  {config.autorizacao_institucional ? "Sim" : "Não"}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAutorizarInstitucional(!config.autorizacao_institucional)}
+                  disabled={autorizando}
+                >
+                  {autorizando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {config.autorizacao_institucional ? "Revogar autorização" : "Autorizar"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {isAdminInstitucional && (
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-primary" />
+              Transferir função institucional
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Passa seu papel de admin institucional (acesso a todas as turmas em andamento) pra
+              outra pessoa — você volta a ser administrador comum depois.
+            </p>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1 space-y-1">
+                <Label>Quem vai assumir</Label>
+                <select
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  value={novoInstitucionalId}
+                  onChange={(e) => setNovoInstitucionalId(e.target.value)}
+                >
+                  <option value="">Selecione...</option>
+                  {candidatosInstitucional.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome_completo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button onClick={handleTransferirInstitucional} disabled={transferindo}>
+                {transferindo && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Transferir
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-primary/30">
         <CardHeader>
