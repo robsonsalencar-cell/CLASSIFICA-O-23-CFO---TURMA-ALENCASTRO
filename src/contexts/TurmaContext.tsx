@@ -11,6 +11,12 @@ export interface Turma {
   titulo_pagina_geral: string;
   subtitulo_pagina: string;
   ranking_publico: boolean;
+  ano_letivo_cfo1: string | null;
+  ano_letivo_cfo2: string | null;
+  ano_letivo_cfo3: string | null;
+  responsavel_assinatura_nome: string;
+  responsavel_assinatura_posto: string;
+  responsavel_assinatura_funcao: string;
   created_at: string;
 }
 
@@ -31,6 +37,17 @@ interface TurmaContextValue {
   ) => Promise<{ error: string | null }>;
   enviarBrasaoTurma: (id: string, arquivo: File) => Promise<{ error: string | null }>;
   alternarRankingPublico: (id: string, valor: boolean) => Promise<{ error: string | null }>;
+  atualizarDadosBoletim: (
+    id: string,
+    dados: {
+      ano_letivo_cfo1: string;
+      ano_letivo_cfo2: string;
+      ano_letivo_cfo3: string;
+      responsavel_assinatura_nome: string;
+      responsavel_assinatura_posto: string;
+      responsavel_assinatura_funcao: string;
+    }
+  ) => Promise<{ error: string | null }>;
 }
 
 const TURMA_PADRAO: Turma = {
@@ -42,6 +59,12 @@ const TURMA_PADRAO: Turma = {
   titulo_pagina_geral: "CLASSIFICAÇÃO FINAL – 23º CFO",
   subtitulo_pagina: "Painel de desempenho dos alunos oficiais - Turma Alencastro",
   ranking_publico: false,
+  ano_letivo_cfo1: null,
+  ano_letivo_cfo2: null,
+  ano_letivo_cfo3: null,
+  responsavel_assinatura_nome: "Matheus Vitor Xavier Moraes Pereira",
+  responsavel_assinatura_posto: "2º Ten PM",
+  responsavel_assinatura_funcao: "Gerente Subalterno da Secretaria de Registros Acadêmicos",
   created_at: new Date().toISOString(),
 };
 
@@ -135,6 +158,22 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  async function atualizarDadosBoletim(
+    id: string,
+    dados: {
+      ano_letivo_cfo1: string;
+      ano_letivo_cfo2: string;
+      ano_letivo_cfo3: string;
+      responsavel_assinatura_nome: string;
+      responsavel_assinatura_posto: string;
+      responsavel_assinatura_funcao: string;
+    }
+  ) {
+    const { error } = await supabase.from("turmas").update(dados).eq("id", id);
+    if (!error) await carregar();
+    return { error: error?.message ?? null };
+  }
+
   return (
     <TurmaContext.Provider
       value={{
@@ -149,6 +188,7 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
         atualizarTextoCabecalho,
         enviarBrasaoTurma,
         alternarRankingPublico,
+        atualizarDadosBoletim,
       }}
     >
       {children}

@@ -22,10 +22,13 @@ export interface DetalheMateria {
   nota_final: number | null;
   vc_lista: number[];
   vf: number | null;
+  verif_2a_epoca: number | null;
+  media_2a_epoca: number | null;
 }
 
 export interface AlunoModulo extends DetailedStudent {
   aluno_id: string;
+  matricula: string | null;
   gradesDetalhado: Record<string, DetalheMateria>;
 }
 
@@ -42,12 +45,22 @@ export function useAlunosModulo(tabela: TabelaModulo, listaMaterias: string[]) {
   const students = useMemo<AlunoModulo[]>(() => {
     const porAluno = new Map<
       string,
-      { nome: string; grades: Record<string, number>; detalhado: Record<string, DetalheMateria> }
+      {
+        nome: string;
+        matricula: string | null;
+        grades: Record<string, number>;
+        detalhado: Record<string, DetalheMateria>;
+      }
     >();
 
     for (const row of rows) {
       if (!porAluno.has(row.aluno_id)) {
-        porAluno.set(row.aluno_id, { nome: row.aluno_nome ?? "—", grades: {}, detalhado: {} });
+        porAluno.set(row.aluno_id, {
+          nome: row.aluno_nome ?? "—",
+          matricula: row.aluno_matricula ?? null,
+          grades: {},
+          detalhado: {},
+        });
       }
       const entrada = porAluno.get(row.aluno_id)!;
       if (row.nota_final !== null) {
@@ -57,16 +70,19 @@ export function useAlunosModulo(tabela: TabelaModulo, listaMaterias: string[]) {
         nota_final: row.nota_final,
         vc_lista: row.vc_lista ?? [],
         vf: row.vf,
+        verif_2a_epoca: row.verif_2a_epoca,
+        media_2a_epoca: row.media_2a_epoca,
       };
     }
 
-    const provisorio = Array.from(porAluno.entries()).map(([alunoId, { nome, grades, detalhado }]) => {
+    const provisorio = Array.from(porAluno.entries()).map(([alunoId, { nome, matricula, grades, detalhado }]) => {
       const valores = Object.values(grades);
       const mediaFinal = valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
 
       return {
         ...CAMPOS_LEGADOS_ZERADOS,
         aluno_id: alunoId,
+        matricula,
         nome,
         mediaFinal,
         rank: 0,

@@ -24,6 +24,7 @@ export interface Profile {
   nome_completo: string;
   email: string;
   cpf: string | null;
+  matricula: string | null;
   role: AppRole;
   turma_id: string | null;
   senha_trocada: boolean;

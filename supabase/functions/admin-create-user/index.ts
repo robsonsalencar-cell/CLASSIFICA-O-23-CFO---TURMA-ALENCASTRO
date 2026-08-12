@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, nome_completo, cpf, senha_provisoria, role, turma_id } = await req.json();
+    const { email, nome_completo, cpf, matricula, senha_provisoria, role, turma_id } = await req.json();
 
     if (!email || !nome_completo || !senha_provisoria || !turma_id) {
       return new Response(JSON.stringify({ error: "email, nome_completo, senha_provisoria e turma_id são obrigatórios." }), {
@@ -93,10 +93,10 @@ Deno.serve(async (req) => {
     }
 
     // O profile é criado automaticamente pelo trigger on_auth_user_created (ver schema.sql);
-    // aqui só precisamos gravar o turma_id, que o trigger não conhece.
+    // aqui só precisamos gravar o turma_id e a matrícula, que o trigger não conhece.
     const { error: turmaError } = await adminClient
       .from("profiles")
-      .update({ turma_id })
+      .update({ turma_id, matricula: matricula || null })
       .eq("id", created.user.id);
 
     if (turmaError) {
