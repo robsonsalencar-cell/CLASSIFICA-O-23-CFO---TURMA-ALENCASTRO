@@ -7,6 +7,7 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   isAdmin: boolean;
+  isAdminInstitucional: boolean;
   isDeveloper: boolean;
   precisaTrocarSenha: boolean;
   loading: boolean;
@@ -85,7 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user: session?.user ?? null,
     profile,
-    isAdmin: profile?.role === "admin" || profile?.role === "desenvolvedor",
+    isAdmin: profile?.role === "admin" || profile?.role === "admin_institucional" || profile?.role === "desenvolvedor",
+    isAdminInstitucional: profile?.role === "admin_institucional",
     isDeveloper: profile?.role === "desenvolvedor",
     precisaTrocarSenha: profile ? profile.senha_trocada === false : false,
     loading,
