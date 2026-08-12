@@ -48,6 +48,7 @@ const ClassificacaoGeral = () => {
       string,
       {
         nome: string;
+        matricula: string | null;
         cfoI?: number;
         cfoII?: number;
         cfoIII?: number;
@@ -57,7 +58,7 @@ const ClassificacaoGeral = () => {
 
     function acumular(lista: typeof cfo1.students, campo: "cfoI" | "cfoII" | "cfoIII", prefixo: string) {
       for (const s of lista) {
-        const atual = porAlunoId.get(s.aluno_id) ?? { nome: s.nome, gradesDetalhado: {} };
+        const atual = porAlunoId.get(s.aluno_id) ?? { nome: s.nome, matricula: s.matricula, gradesDetalhado: {} };
         atual[campo] = s.mediaFinal;
         for (const [materia, d] of Object.entries(s.gradesDetalhado)) {
           atual.gradesDetalhado[`${materia} (${prefixo})`] = d;
@@ -69,15 +70,17 @@ const ClassificacaoGeral = () => {
     acumular(cfo2.students, "cfoII", "CFO II");
     acumular(cfo3.students, "cfoIII", "CFO III");
 
-    const lista = Array.from(porAlunoId.values())
+    const lista = Array.from(porAlunoId.entries())
       // Só entra na Classificação Geral quem tem nota nos 3 módulos — um
       // aluno que saiu do curso no meio (ex: só fez CFO I) continua aparecendo
       // normalmente no ranking daquele módulo, mas não na classificação final.
-      .filter((s) => typeof s.cfoI === "number" && typeof s.cfoII === "number" && typeof s.cfoIII === "number")
-      .map((s) => {
+      .filter(([, s]) => typeof s.cfoI === "number" && typeof s.cfoII === "number" && typeof s.cfoIII === "number")
+      .map(([alunoId, s]) => {
         const medias = [s.cfoI, s.cfoII, s.cfoIII].filter((v): v is number => typeof v === "number");
         const mediaFinal = mediaSimples(medias);
         return {
+          aluno_id: alunoId,
+          matricula: s.matricula,
           nome: s.nome,
           mediaFinal,
           rank: 0,
