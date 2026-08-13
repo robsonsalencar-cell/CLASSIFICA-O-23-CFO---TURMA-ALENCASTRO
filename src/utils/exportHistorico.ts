@@ -7,6 +7,7 @@ import {
   TableRow as DocxTableRow,
   TableCell as DocxTableCell,
   TextRun,
+  ImageRun,
   AlignmentType,
   WidthType,
 } from "docx";
@@ -17,6 +18,7 @@ import {
   TEXTO_LEGAL_FECHAMENTO,
 } from "@/config/documentosOficiais";
 import { notaPorExtenso } from "@/utils/numeroExtenso";
+import { carregarImagemBrasao } from "@/utils/brasaoImagem";
 
 const COR_VERMELHA = "FF0000";
 const PLACEHOLDER = "______";
@@ -50,6 +52,7 @@ export interface DadosExportacaoHistorico {
   mediaFinal: number;
   rank: number | null;
   numeroRegistro: number;
+  brasaoUrl: string | null;
   comandanteNome: string | null; // campo vermelho
   comandantePosto: string | null; // campo vermelho
   responsavelNome: string;
@@ -176,10 +179,25 @@ function tabelaAno(
 }
 
 export async function exportarHistoricoWord(dados: DadosExportacaoHistorico) {
+  const brasao = await carregarImagemBrasao(dados.brasaoUrl);
   const doc = new Document({
     sections: [
       {
         children: [
+          ...(brasao
+            ? [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new ImageRun({
+                      data: brasao.bytes,
+                      type: brasao.formato,
+                      transformation: { width: 90, height: 90 },
+                    }),
+                  ],
+                }),
+              ]
+            : []),
           new Paragraph({ text: TEXTO_INSTITUCIONAL_HISTORICO.linha1, alignment: AlignmentType.CENTER }),
           new Paragraph({ text: TEXTO_INSTITUCIONAL_HISTORICO.linha2, alignment: AlignmentType.CENTER }),
           new Paragraph({ text: TEXTO_INSTITUCIONAL_HISTORICO.linha3, alignment: AlignmentType.CENTER }),

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { AlunoModulo } from "@/hooks/useAlunosModulo";
+import { supabase } from "@/lib/supabaseClient";
 import { useConfiguracaoTurma, useTurma } from "@/contexts/TurmaContext";
 import { exportarAlunoCSV, exportarAlunoPDF, exportarAlunoXLSX } from "@/utils/exportAluno";
 import { exportarBoletimPDF, exportarBoletimWord, exportarBoletimExcel } from "@/utils/exportBoletim";
@@ -110,9 +111,15 @@ export function StudentDetailsModal({
   async function gerarBoletim() {
     if (!student || !boletimFormato) return;
     setGerandoBoletim(true);
+    const alunoId = (student as AlunoModulo).aluno_id;
+    const { data: bio } = alunoId
+      ? await supabase.from("profiles").select("matricula_academia").eq("id", alunoId).single()
+      : { data: null };
     const dados = {
       nomeAluno: student.nome,
       matricula: (student as AlunoModulo).matricula ?? null,
+      matriculaAcademia: bio?.matricula_academia ?? null,
+      brasaoUrl: config.brasao_url,
       nomeTurma: config.nome_turma,
       tituloModulo,
       anoLetivo: anoLetivoDoModulo(),
@@ -124,7 +131,7 @@ export function StudentDetailsModal({
       responsavelPosto: config.responsavel_assinatura_posto,
       responsavelFuncao: config.responsavel_assinatura_funcao,
     };
-    if (boletimFormato === "pdf") exportarBoletimPDF(dados);
+    if (boletimFormato === "pdf") await exportarBoletimPDF(dados);
     else if (boletimFormato === "word") await exportarBoletimWord(dados);
     else exportarBoletimExcel(dados);
     setGerandoBoletim(false);
@@ -176,6 +183,7 @@ export function StudentDetailsModal({
       mediaFinal: student.mediaFinal,
       rank: student.rank,
       numeroRegistro: numero,
+      brasaoUrl: config.brasao_url,
       comandanteNome: config.comandante_apmcv_nome,
       comandantePosto: config.comandante_apmcv_posto,
       responsavelNome: config.responsavel_assinatura_nome,
