@@ -16,6 +16,7 @@ import {
   TEXTO_LEGAL_ABERTURA,
   TEXTO_LEGAL_ADMISSAO,
   TEXTO_LEGAL_FECHAMENTO,
+  BRASAO_OFICIAL_APMCV_URL,
 } from "@/config/documentosOficiais";
 import { notaPorExtenso } from "@/utils/numeroExtenso";
 import { carregarImagemBrasao } from "@/utils/brasaoImagem";
@@ -52,7 +53,6 @@ export interface DadosExportacaoHistorico {
   mediaFinal: number;
   rank: number | null;
   numeroRegistro: number;
-  brasaoUrl: string | null;
   comandanteNome: string | null; // campo vermelho
   comandantePosto: string | null; // campo vermelho
   responsavelNome: string;
@@ -179,7 +179,7 @@ function tabelaAno(
 }
 
 export async function exportarHistoricoWord(dados: DadosExportacaoHistorico) {
-  const brasao = await carregarImagemBrasao(dados.brasaoUrl);
+  const brasao = await carregarImagemBrasao(BRASAO_OFICIAL_APMCV_URL);
   const doc = new Document({
     sections: [
       {

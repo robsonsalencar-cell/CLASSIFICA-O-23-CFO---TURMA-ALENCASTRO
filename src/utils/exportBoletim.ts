@@ -14,7 +14,7 @@ import {
   WidthType,
 } from "docx";
 import { DetalheMateria } from "@/hooks/useAlunosModulo";
-import { TEXTO_INSTITUCIONAL } from "@/config/documentosOficiais";
+import { TEXTO_INSTITUCIONAL, BRASAO_OFICIAL_APMCV_URL } from "@/config/documentosOficiais";
 import { MATERIAS_SOMA_VC } from "@/config/formulaNotas";
 import { carregarImagemBrasao } from "@/utils/brasaoImagem";
 
@@ -22,7 +22,6 @@ export interface DadosExportacaoBoletim {
   nomeAluno: string;
   matricula: string | null;
   matriculaAcademia: string | null;
-  brasaoUrl: string | null;
   nomeTurma: string;
   tituloModulo: string; // ex: "CFO I", "CFO II", "CFO III"
   anoLetivo: string | null;
@@ -148,7 +147,7 @@ export async function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
   const doc = new jsPDF();
   let y = 14;
 
-  const brasao = await carregarImagemBrasao(dados.brasaoUrl);
+  const brasao = await carregarImagemBrasao(BRASAO_OFICIAL_APMCV_URL);
   if (brasao) {
     const tamanho = 22; // mm, centralizado
     doc.addImage(brasao.dataUrl, brasao.formato === "png" ? "PNG" : "JPEG", 105 - tamanho / 2, y, tamanho, tamanho);
@@ -212,7 +211,7 @@ export async function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
 
 export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
   const linhas = linhasBoletim(dados);
-  const brasao = await carregarImagemBrasao(dados.brasaoUrl);
+  const brasao = await carregarImagemBrasao(BRASAO_OFICIAL_APMCV_URL);
 
   const headerCell = (texto: string) =>
     new DocxTableCell({
