@@ -11,6 +11,16 @@ export const TEXTO_INSTITUCIONAL = {
   linha5: "(CIM – 1951)",
 } as const;
 
+/**
+ * Brasão OFICIAL da Academia — fixo, não é o brasão configurável por turma
+ * (esse é só cosmético, usado no topo do dashboard e no relatório que cada
+ * aluno pode exportar). Documentos oficiais (Boletim e Histórico Escolar)
+ * sempre usam este, independente de qual turma o aluno é. Salvo como asset
+ * do próprio repo (não referencia o storage do Supabase) pra não depender
+ * de nenhuma turma manter o upload configurado.
+ */
+export const BRASAO_OFICIAL_APMCV_URL = "/brasao-apmcv-oficial.png";
+
 // Textos institucionais fixos usados só no Histórico Escolar (Fase 2).
 // TEXTO_INSTITUCIONAL acima continua exclusivo do Boletim, sem mudanças.
 export const TEXTO_INSTITUCIONAL_HISTORICO = {

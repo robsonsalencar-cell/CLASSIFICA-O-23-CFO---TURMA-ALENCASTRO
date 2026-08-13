@@ -9,16 +9,19 @@ import {
   TableRow as DocxTableRow,
   TableCell as DocxTableCell,
   TextRun,
+  ImageRun,
   AlignmentType,
   WidthType,
 } from "docx";
 import { DetalheMateria } from "@/hooks/useAlunosModulo";
-import { TEXTO_INSTITUCIONAL } from "@/config/documentosOficiais";
+import { TEXTO_INSTITUCIONAL, BRASAO_OFICIAL_APMCV_URL } from "@/config/documentosOficiais";
 import { MATERIAS_SOMA_VC } from "@/config/formulaNotas";
+import { carregarImagemBrasao } from "@/utils/brasaoImagem";
 
 export interface DadosExportacaoBoletim {
   nomeAluno: string;
   matricula: string | null;
+  matriculaAcademia: string | null;
   nomeTurma: string;
   tituloModulo: string; // ex: "CFO I", "CFO II", "CFO III"
   anoLetivo: string | null;
@@ -82,6 +85,7 @@ export function exportarBoletimExcel(dados: DadosExportacaoBoletim) {
     [],
     [`Nome do aluno: ${dados.nomeAluno}`],
     [`Matrícula: ${dados.matricula ?? "—"}`, `Turma: ${dados.nomeTurma}`],
+    [`Matrícula na Academia: ${dados.matriculaAcademia ?? "—"}`],
     [`Ano letivo: ${dados.anoLetivo ?? "—"}`, `Início: ${dados.inicio || "—"}`, `Término: ${dados.termino || "—"}`],
     [],
   ];
@@ -139,9 +143,16 @@ export function exportarBoletimExcel(dados: DadosExportacaoBoletim) {
   XLSX.writeFile(wb, nomeArquivo(dados, "xlsx"));
 }
 
-export function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
+export async function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
   const doc = new jsPDF();
   let y = 14;
+
+  const brasao = await carregarImagemBrasao(BRASAO_OFICIAL_APMCV_URL);
+  if (brasao) {
+    const tamanho = 22; // mm, centralizado
+    doc.addImage(brasao.dataUrl, brasao.formato === "png" ? "PNG" : "JPEG", 105 - tamanho / 2, y, tamanho, tamanho);
+    y += tamanho + 3;
+  }
 
   doc.setFontSize(11);
   doc.setTextColor(0);
@@ -164,6 +175,8 @@ export function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
   y += 6;
   doc.text(`MATRÍCULA: ${dados.matricula ?? "—"}`, 14, y);
   doc.text(`TURMA: ${dados.nomeTurma}`, 110, y);
+  y += 6;
+  doc.text(`MATRÍCULA NA ACADEMIA: ${dados.matriculaAcademia ?? "—"}`, 14, y);
   y += 6;
   doc.text(`ANO LETIVO: ${dados.anoLetivo ?? "—"}`, 14, y);
   doc.text(`INÍCIO: ${dados.inicio || "—"}`, 90, y);
@@ -198,6 +211,7 @@ export function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
 
 export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
   const linhas = linhasBoletim(dados);
+  const brasao = await carregarImagemBrasao(BRASAO_OFICIAL_APMCV_URL);
 
   const headerCell = (texto: string) =>
     new DocxTableCell({
@@ -248,6 +262,20 @@ export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
     sections: [
       {
         children: [
+          ...(brasao
+            ? [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new ImageRun({
+                      data: brasao.bytes,
+                      type: brasao.formato,
+                      transformation: { width: 90, height: 90 },
+                    }),
+                  ],
+                }),
+              ]
+            : []),
           new Paragraph({ text: TEXTO_INSTITUCIONAL.linha1, alignment: AlignmentType.CENTER }),
           new Paragraph({ text: TEXTO_INSTITUCIONAL.linha2, alignment: AlignmentType.CENTER }),
           new Paragraph({ text: TEXTO_INSTITUCIONAL.linha3, alignment: AlignmentType.CENTER }),
@@ -261,6 +289,7 @@ export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
           new Paragraph({ text: "" }),
           new Paragraph({ text: `NOME DO ALUNO: ${dados.nomeAluno}` }),
           new Paragraph({ text: `MATRÍCULA: ${dados.matricula ?? "—"}    TURMA: ${dados.nomeTurma}` }),
+          new Paragraph({ text: `MATRÍCULA NA ACADEMIA: ${dados.matriculaAcademia ?? "—"}` }),
           new Paragraph({
             text: `ANO LETIVO: ${dados.anoLetivo ?? "—"}    INÍCIO: ${dados.inicio || "—"}    TÉRMINO: ${dados.termino || "—"}`,
           }),
