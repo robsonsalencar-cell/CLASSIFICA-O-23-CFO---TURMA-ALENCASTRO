@@ -95,7 +95,18 @@ export function exportarBoletimExcel(dados: DadosExportacaoBoletim) {
   // Tabela de notas — a partir da linha logo após o cabeçalho, com fórmulas
   // reais de planilha nas colunas de média (não valores fixos).
   const linhaInicioTabela = cabecalho.length + 1; // 1-based
-  const header = ["Disciplina", "1ª VC", "2ª VC", "3ª VC", "Média VCs", "VF", "Média Final", "Verif. 2ª Época", "Média 2ª Época"];
+  const header = [
+    "Disciplina",
+    "1ª VC",
+    "2ª VC",
+    "3ª VC",
+    "Média VCs",
+    "VF",
+    "Média Final",
+    "Verif. 2ª Época",
+    "Média 2ª Época",
+    "Média Final",
+  ];
   XLSX.utils.sheet_add_aoa(wsCabecalho, [header], { origin: `A${linhaInicioTabela}` });
 
   linhas.forEach((l, i) => {
@@ -104,6 +115,7 @@ export function exportarBoletimExcel(dados: DadosExportacaoBoletim) {
     const vc3 = `D${linhaAtual}`;
     const mediaVcs = `E${linhaAtual}`;
     const vf = `F${linhaAtual}`;
+    const mediaFinal = `G${linhaAtual}`;
     // Exceção já auditada do sistema (src/config/formulaNotas.ts,
     // MATERIAS_SOMA_VC): "Direito Administrativo Disciplinar Militar I" usa
     // SOMA das VCs em vez de MÉDIA — preservada aqui também, pra a fórmula
@@ -122,6 +134,10 @@ export function exportarBoletimExcel(dados: DadosExportacaoBoletim) {
           { f: `IFERROR((${mediaVcs}*2+${vf}*3)/5,"")` },
           l.verif2aEpoca ? Number(l.verif2aEpoca) : "",
           l.media2aEpoca ? Number(l.media2aEpoca) : "",
+          // Coluna "Média Final" repetida no fim da tabela, igual ao modelo
+          // oficial (MODELO BOLETIM ESCOLAR.pdf) — mesmo valor da "Média
+          // Final" do meio; a 2ª Época é só impressa, nunca recalcula isso.
+          { f: `IFERROR(${mediaFinal},"")` },
         ],
       ],
       { origin: `A${linhaAtual}` }
@@ -186,8 +202,19 @@ export async function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
   const linhas = linhasBoletim(dados);
   autoTable(doc, {
     startY: y,
-    head: [["Disciplina", "1ª VC", "2ª VC", "3ª VC", "Média VCs", "VF", "Média Final", "2ª Época", "Média 2ª Ép."]],
-    body: linhas.map((l) => [l.materia, l.vc1, l.vc2, l.vc3, l.mediaVcs, l.vf, l.mediaFinal, l.verif2aEpoca, l.media2aEpoca]),
+    head: [["Disciplina", "1ª VC", "2ª VC", "3ª VC", "Média VCs", "VF", "Média Final", "2ª Época", "Média 2ª Ép.", "Média Final"]],
+    body: linhas.map((l) => [
+      l.materia,
+      l.vc1,
+      l.vc2,
+      l.vc3,
+      l.mediaVcs,
+      l.vf,
+      l.mediaFinal,
+      l.verif2aEpoca,
+      l.media2aEpoca,
+      l.mediaFinal, // repetida no fim, igual ao modelo oficial — 2ª Época não recalcula
+    ]),
     theme: "grid",
     headStyles: { fillColor: [30, 58, 138], fontSize: 7 },
     styles: { fontSize: 7 },
@@ -216,7 +243,7 @@ export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
   const headerCell = (texto: string) =>
     new DocxTableCell({
       children: [new Paragraph({ text: texto, alignment: AlignmentType.CENTER })],
-      width: { size: 11, type: WidthType.PERCENTAGE },
+      width: { size: 10, type: WidthType.PERCENTAGE },
     });
   const bodyCell = (texto: string) =>
     new DocxTableCell({
@@ -237,6 +264,7 @@ export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
           "Média Final",
           "2ª Época",
           "Média 2ª Ép.",
+          "Média Final",
         ].map(headerCell),
       }),
       ...linhas.map(
@@ -252,6 +280,7 @@ export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
               l.mediaFinal,
               l.verif2aEpoca,
               l.media2aEpoca,
+              l.mediaFinal, // repetida no fim, igual ao modelo oficial — 2ª Época não recalcula
             ].map(bodyCell),
           })
       ),
