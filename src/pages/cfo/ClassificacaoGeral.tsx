@@ -503,6 +503,7 @@ const ClassificacaoGeral = () => {
         }}
         totalStudents={students.length}
         tituloModulo="Classificação Geral"
+        isAdmin={isAdmin}
       />
 
       <div className="bg-[hsl(220,50%,10%)] border-t border-primary/20 text-center py-2">
