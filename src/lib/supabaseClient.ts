@@ -17,7 +17,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Tipos de apoio (ajuste conforme o schema.sql)
-export type AppRole = "admin" | "aluno" | "desenvolvedor";
+export type AppRole = "admin" | "admin_institucional" | "aluno" | "desenvolvedor";
 
 export interface Profile {
   id: string;

@@ -47,19 +47,6 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: callerProfile } = await adminClient
-      .from("profiles")
-      .select("role")
-      .eq("id", caller.id)
-      .single();
-
-    if (callerProfile?.role !== "admin" && callerProfile?.role !== "desenvolvedor") {
-      return new Response(JSON.stringify({ error: "Apenas administradores podem editar usuários." }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { user_id, nome_completo, email, cpf, matricula, role, nova_senha, turma_id } = await req.json();
 
     if (!user_id) {
@@ -67,6 +54,51 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // 'desenvolvedor'/'admin_institucional' só mudam pelos fluxos próprios
+    // (transferir_admin_institucional() e cadastro manual do desenvolvedor),
+    // nunca por esta edição genérica.
+    if (role === "desenvolvedor" || role === "admin_institucional") {
+      return new Response(
+        JSON.stringify({ error: "Esses papéis só podem ser atribuídos pelos fluxos próprios, não por aqui." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: alvo } = await adminClient.from("profiles").select("turma_id").eq("id", user_id).single();
+    if (!alvo) {
+      return new Response(JSON.stringify({ error: "Usuário não encontrado." }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // pode_configurar_turma cobre: dono oficial da turma, admin institucional
+    // (se não finalizada ou autorizado), desenvolvedor, ou qualquer admin
+    // numa turma nova que ainda não tem admin oficial (janela de bootstrap).
+    const { data: podeNaAtual } = await adminClient.rpc("pode_configurar_turma", {
+      p_turma_id: alvo.turma_id,
+      p_usuario_id: caller.id,
+    });
+    if (!podeNaAtual) {
+      return new Response(JSON.stringify({ error: "Você não tem permissão para editar este usuário." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (turma_id && turma_id !== alvo.turma_id) {
+      const { data: podeNaNova } = await adminClient.rpc("pode_configurar_turma", {
+        p_turma_id: turma_id,
+        p_usuario_id: caller.id,
+      });
+      if (!podeNaNova) {
+        return new Response(JSON.stringify({ error: "Você não tem permissão para mover este usuário para essa turma." }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     if (email || nova_senha) {

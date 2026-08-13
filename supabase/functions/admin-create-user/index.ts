@@ -51,24 +51,26 @@ Deno.serve(async (req) => {
     // Cliente admin (service_role) para checar permissão e criar o novo usuário
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: callerProfile } = await adminClient
-      .from("profiles")
-      .select("role")
-      .eq("id", caller.id)
-      .single();
-
-    if (callerProfile?.role !== "admin" && callerProfile?.role !== "desenvolvedor") {
-      return new Response(JSON.stringify({ error: "Apenas administradores podem criar usuários." }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { email, nome_completo, cpf, matricula, senha_provisoria, role, turma_id } = await req.json();
 
     if (!email || !nome_completo || !senha_provisoria || !turma_id) {
       return new Response(JSON.stringify({ error: "email, nome_completo, senha_provisoria e turma_id são obrigatórios." }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // pode_configurar_turma cobre: dono oficial da turma, admin institucional
+    // (se não finalizada ou autorizado), desenvolvedor, ou qualquer admin
+    // numa turma nova que ainda não tem admin oficial (janela de bootstrap).
+    const { data: podeConfigurar } = await adminClient.rpc("pode_configurar_turma", {
+      p_turma_id: turma_id,
+      p_usuario_id: caller.id,
+    });
+
+    if (!podeConfigurar) {
+      return new Response(JSON.stringify({ error: "Você não tem permissão para cadastrar alunos nesta turma." }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

@@ -1,9 +1,11 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { HighlightCard } from "@/components/dashboard/HighlightCard";
 import { RankingTable } from "@/components/dashboard/RankingTable";
 import { StudentDetailsModal } from "@/components/dashboard/StudentDetailsModal";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { calculateKPIs } from "@/data/mockData";
 import { DetailedStudent } from "@/hooks/useGoogleSheets";
@@ -12,7 +14,8 @@ import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
 import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
+import { useConfiguracaoTurma, useTurma } from "@/contexts/TurmaContext";
+import { supabase } from "@/lib/supabaseClient";
 import { useTemaModulo } from "@/hooks/useTemaModulo";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
@@ -35,6 +38,56 @@ const ClassificacaoGeral = () => {
   const mostrarVisaoCompleta = !emVisaoDeAluno || config.ranking_publico;
   const [selectedStudent, setSelectedStudent] = useState<DetailedStudent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const { turmas } = useTurma();
+  const [turmaResumoId, setTurmaResumoId] = useState<string | null>(null);
+  const [resumoOutraTurma, setResumoOutraTurma] = useState<{
+    nomeTurma: string;
+    indicadores: { totalAlunos: number; mediaTurma: number; desvioPadrao: number; maiorMedia: number; menorMedia: number };
+    mediaCfo1: number | null;
+    mediaCfo2: number | null;
+    mediaCfo3: number | null;
+    ranking: { nome: string; media_final: number }[];
+  } | null>(null);
+  const [carregandoResumo, setCarregandoResumo] = useState(false);
+
+  useEffect(() => {
+    if (!turmaResumoId) {
+      setResumoOutraTurma(null);
+      return;
+    }
+    let cancelado = false;
+    setCarregandoResumo(true);
+    Promise.all([
+      supabase.rpc("estatisticas_classificacao_geral", { p_turma_id: turmaResumoId }),
+      supabase.rpc("estatisticas_modulo", { p_tabela: "notas_cfo1", p_turma_id: turmaResumoId }),
+      supabase.rpc("estatisticas_modulo", { p_tabela: "notas_cfo2", p_turma_id: turmaResumoId }),
+      supabase.rpc("estatisticas_modulo", { p_tabela: "notas_cfo3", p_turma_id: turmaResumoId }),
+      supabase.rpc("ranking_turma", { p_turma_id: turmaResumoId }),
+    ]).then(([geral, m1, m2, m3, ranking]) => {
+      if (cancelado) return;
+      const g = geral.data?.[0];
+      const nomeTurma = turmas.find((t) => t.id === turmaResumoId)?.nome_turma ?? "";
+      setResumoOutraTurma({
+        nomeTurma,
+        indicadores: {
+          totalAlunos: g?.total_alunos ?? 0,
+          mediaTurma: g?.media_turma ?? 0,
+          desvioPadrao: g?.desvio_padrao ?? 0,
+          maiorMedia: g?.maior_media ?? 0,
+          menorMedia: g?.menor_media ?? 0,
+        },
+        mediaCfo1: m1.data?.[0]?.media_turma ?? null,
+        mediaCfo2: m2.data?.[0]?.media_turma ?? null,
+        mediaCfo3: m3.data?.[0]?.media_turma ?? null,
+        ranking: (ranking.data ?? []).sort((a: any, b: any) => b.media_final - a.media_final),
+      });
+      setCarregandoResumo(false);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [turmaResumoId, turmas]);
 
   const cfo1 = useAlunosModulo("notas_cfo1", MATERIAS_CFO1);
   const cfo2 = useAlunosModulo("notas_cfo2", MATERIAS_CFO2);
@@ -178,10 +231,96 @@ const ClassificacaoGeral = () => {
     </header>
   );
 
+  const seletorTurma = (
+    <div className="container mx-auto px-4 pt-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Label className="text-sm text-muted-foreground">Ver resumo de outra turma:</Label>
+        <select
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          value={turmaResumoId ?? ""}
+          onChange={(e) => setTurmaResumoId(e.target.value || null)}
+        >
+          <option value="">Minha turma (visão completa)</option>
+          {turmas
+            .filter((t) => t.id !== config.id)
+            .map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.nome_turma}
+              </option>
+            ))}
+        </select>
+      </div>
+    </div>
+  );
+
+  if (turmaResumoId) {
+    return (
+      <div className="min-h-screen bg-background tema-geral">
+        {header}
+        {seletorTurma}
+        <div className="container mx-auto px-4 py-8 space-y-8">
+          {carregandoResumo || !resumoOutraTurma ? (
+            <div className="flex items-center justify-center py-24">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              <section>
+                <h2 className="text-xl font-semibold mb-4 text-foreground">
+                  Indicadores Gerais — {resumoOutraTurma.nomeTurma}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <KPICard title="Total de Alunos" value={resumoOutraTurma.indicadores.totalAlunos} variant="default" icon={<Users className="w-4 h-4" />} />
+                  <KPICard title="Média da Turma" value={resumoOutraTurma.indicadores.mediaTurma.toFixed(4)} subtitle={`Desvio-padrão: ${resumoOutraTurma.indicadores.desvioPadrao.toFixed(4)}`} variant="default" icon={<Target className="w-4 h-4" />} />
+                  <KPICard title="Maior Média" value={resumoOutraTurma.indicadores.maiorMedia.toFixed(4)} variant="success" icon={<TrendingUp className="w-4 h-4" />} />
+                  <KPICard title="Menor Média" value={resumoOutraTurma.indicadores.menorMedia.toFixed(4)} variant="warning" icon={<TrendingDown className="w-4 h-4" />} />
+                </div>
+              </section>
+              <section>
+                <h2 className="text-xl font-semibold mb-4 text-foreground">Média da Turma por Módulo</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <KPICard title="Média CFO I" value={resumoOutraTurma.mediaCfo1?.toFixed(4) ?? "—"} variant="default" icon={<Target className="w-4 h-4" />} />
+                  <KPICard title="Média CFO II" value={resumoOutraTurma.mediaCfo2?.toFixed(4) ?? "—"} variant="default" icon={<Target className="w-4 h-4" />} />
+                  <KPICard title="Média CFO III" value={resumoOutraTurma.mediaCfo3?.toFixed(4) ?? "—"} variant="default" icon={<Target className="w-4 h-4" />} />
+                </div>
+              </section>
+              <section>
+                <h2 className="text-xl font-semibold mb-4 text-foreground">Ranking Completo</h2>
+                <Card>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16">#</TableHead>
+                          <TableHead>Nome</TableHead>
+                          <TableHead className="text-right">Média Final</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {resumoOutraTurma.ranking.map((r, i) => (
+                          <TableRow key={r.nome}>
+                            <TableCell>{i + 1}</TableCell>
+                            <TableCell>{r.nome}</TableCell>
+                            <TableCell className="text-right">{r.media_final.toFixed(4)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </section>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (!mostrarVisaoCompleta) {
     return (
       <div className="min-h-screen bg-background tema-geral">
         {header}
+        {seletorTurma}
         <ResumoIndividualModulo tabela="geral" tituloModulo="Classificação Geral" totalMaterias={totalMaterias} />
       </div>
     );
@@ -191,6 +330,7 @@ const ClassificacaoGeral = () => {
     return (
       <div className="min-h-screen bg-background tema-geral">
         {header}
+        {seletorTurma}
         <div className="flex items-center justify-center py-24">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -201,6 +341,7 @@ const ClassificacaoGeral = () => {
   return (
     <div className="min-h-screen bg-background tema-geral">
       {header}
+      {seletorTurma}
 
       <main className="container mx-auto px-4 py-8 space-y-8">
         <section>

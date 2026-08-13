@@ -20,6 +20,8 @@ export interface Turma {
   comandante_apmcv_nome: string | null;
   comandante_apmcv_posto: string | null;
   proximo_numero_registro_historico: number;
+  finalizada: boolean;
+  autorizacao_institucional: boolean;
   created_at: string;
 }
 
@@ -59,6 +61,9 @@ interface TurmaContextValue {
     alunoId: string,
     turmaId: string
   ) => Promise<{ numero: number | null; error: string | null }>;
+  finalizarTurma: (id: string, valor: boolean) => Promise<{ error: string | null }>;
+  autorizarAdminInstitucional: (id: string, valor: boolean) => Promise<{ error: string | null }>;
+  transferirAdminInstitucional: (novoAdminId: string) => Promise<{ error: string | null }>;
 }
 
 const TURMA_PADRAO: Turma = {
@@ -79,6 +84,8 @@ const TURMA_PADRAO: Turma = {
   comandante_apmcv_nome: null,
   comandante_apmcv_posto: null,
   proximo_numero_registro_historico: 1,
+  finalizada: false,
+  autorizacao_institucional: false,
   created_at: new Date().toISOString(),
 };
 
@@ -228,6 +235,23 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
     return { numero: proximo, error: turmaError?.message ?? null };
   }
 
+  async function finalizarTurma(id: string, valor: boolean) {
+    const { error } = await supabase.rpc("finalizar_turma", { p_turma_id: id, p_finalizada: valor });
+    if (!error) await carregar();
+    return { error: error?.message ?? null };
+  }
+
+  async function autorizarAdminInstitucional(id: string, valor: boolean) {
+    const { error } = await supabase.rpc("autorizar_admin_institucional", { p_turma_id: id, p_valor: valor });
+    if (!error) await carregar();
+    return { error: error?.message ?? null };
+  }
+
+  async function transferirAdminInstitucional(novoAdminId: string) {
+    const { error } = await supabase.rpc("transferir_admin_institucional", { p_novo_admin_id: novoAdminId });
+    return { error: error?.message ?? null };
+  }
+
   return (
     <TurmaContext.Provider
       value={{
@@ -245,6 +269,9 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
         atualizarDadosBoletim,
         atualizarComandanteApmcv,
         atribuirNumeroRegistroHistorico,
+        finalizarTurma,
+        autorizarAdminInstitucional,
+        transferirAdminInstitucional,
       }}
     >
       {children}

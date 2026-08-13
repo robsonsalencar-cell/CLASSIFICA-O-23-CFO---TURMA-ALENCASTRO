@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase, Profile } from "@/lib/supabaseClient";
+import { supabase, Profile, AppRole } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,11 @@ interface EdicaoState {
   email: string;
   cpf: string;
   matricula: string;
-  role: "aluno" | "admin" | "desenvolvedor";
+  // Aceita qualquer papel (pra exibir/preservar o valor atual mesmo quando é
+  // 'admin_institucional' ou 'desenvolvedor'), mas o <select> de edição só
+  // oferece "aluno"/"admin" como opção — os outros dois só mudam pelos
+  // fluxos próprios (transferir_admin_institucional, cadastro manual).
+  role: AppRole;
   nova_senha: string;
 }
 
@@ -347,7 +351,13 @@ export function AdminUsersPanel() {
                             <TableCell>{p.matricula ?? "—"}</TableCell>
                             <TableCell>
                               <Badge variant={p.role === "aluno" ? "secondary" : "default"}>
-                                {p.role === "desenvolvedor" ? "Desenvolvedor" : p.role === "admin" ? "Administrador" : "Aluno"}
+                                {p.role === "desenvolvedor"
+                                  ? "Desenvolvedor"
+                                  : p.role === "admin_institucional"
+                                  ? "Admin institucional"
+                                  : p.role === "admin"
+                                  ? "Administrador"
+                                  : "Aluno"}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
