@@ -82,7 +82,7 @@ export function montarDisciplinasHistorico(
 }
 
 function nf(v: number | null): string {
-  return v != null ? v.toFixed(3) : "";
+  return v != null ? v.toFixed(4) : "";
 }
 
 function nomeArquivo(dados: DadosExportacaoHistorico, extensao: string) {
@@ -234,7 +234,7 @@ export async function exportarHistoricoWord(dados: DadosExportacaoHistorico) {
           ...tabelaAno("3º Ano CFO", dados.anoLetivoCfo3, dados.disciplinasCfo3, dados.mediaCfo3),
           new Paragraph({ text: `Registro nº: ${dados.numeroRegistro}` }),
           new Paragraph({
-            text: `Nota de Aprovação: ${dados.mediaFinal.toFixed(3)} (${notaPorExtenso(dados.mediaFinal)})`,
+            text: `Nota de Aprovação: ${dados.mediaFinal.toFixed(4)} (${notaPorExtenso(dados.mediaFinal)})`,
           }),
           new Paragraph({ text: `Classificação: ${dados.rank ?? "—"}º Lugar` }),
           new Paragraph({ text: "" }),
@@ -293,7 +293,7 @@ export function exportarHistoricoExcel(dados: DadosExportacaoHistorico) {
     ["Ano de conclusão do 2º grau", dados.anoConclusaoEnsinoMedio ?? "—"],
     [],
     ["Registro nº", dados.numeroRegistro],
-    ["Nota de Aprovação", `${dados.mediaFinal.toFixed(3)} (${notaPorExtenso(dados.mediaFinal)})`],
+    ["Nota de Aprovação", `${dados.mediaFinal.toFixed(4)} (${notaPorExtenso(dados.mediaFinal)})`],
     ["Classificação", `${dados.rank ?? "—"}º Lugar`],
     [],
     ["Emitido em", dados.dataEmissao],
