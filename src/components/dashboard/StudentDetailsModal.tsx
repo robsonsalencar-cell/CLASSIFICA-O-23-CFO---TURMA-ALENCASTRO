@@ -170,6 +170,7 @@ export function StudentDetailsModal({
       rgPm: bioAluno.rg_pm,
       escolaAnterior: bioAluno.escola_anterior,
       anoConclusaoEnsinoMedio: bioAluno.ano_conclusao_ensino_medio,
+      grauConcluido: bioAluno.grau_concluido,
       disciplinasCfo1: montarDisciplinasHistorico(MATERIAS_CFO1, CARGA_HORARIA_CFO1, detalhado, "CFO I"),
       disciplinasCfo2: montarDisciplinasHistorico(MATERIAS_CFO2, CARGA_HORARIA_CFO2, detalhado, "CFO II"),
       disciplinasCfo3: montarDisciplinasHistorico(MATERIAS_CFO3, CARGA_HORARIA_CFO3, detalhado, "CFO III"),

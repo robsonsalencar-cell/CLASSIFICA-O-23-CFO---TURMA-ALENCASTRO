@@ -40,7 +40,7 @@ export const TEXTO_LEGAL_ABERTURA =
 
 export const TEXTO_LEGAL_ADMISSAO =
   "admitido(a) por Concurso Público realizado pela Polícia Militar do Estado de Mato Grosso " +
-  "em convênio com a Universidade Federal de Mato Grosso, tendo concluído o 2º Grau";
+  "em convênio com a Universidade Federal de Mato Grosso, tendo concluído";
 
 export const TEXTO_LEGAL_FECHAMENTO =
   "Por ser verdade eu mandei passar o presente, assinado depois de datado pelo chefe da " +

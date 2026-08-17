@@ -12,13 +12,14 @@ export interface DadosBiograficosAluno {
   matricula_academia: string | null;
   escola_anterior: string | null;
   ano_conclusao_ensino_medio: string | null;
+  grau_concluido: string | null;
   numero_registro_historico: number | null;
 }
 
 const CAMPOS =
   "nome_completo, matricula, rg_pm, filiacao_pai, filiacao_mae, naturalidade, " +
   "data_nascimento, matricula_academia, escola_anterior, ano_conclusao_ensino_medio, " +
-  "numero_registro_historico";
+  "grau_concluido, numero_registro_historico";
 
 /**
  * Busca os dados biográficos de um aluno (Fase 2 — Histórico Escolar), sob

@@ -35,7 +35,7 @@ export interface DadosExportacaoBoletim {
 }
 
 function nf(v: number | null | undefined): string {
-  return v != null ? v.toFixed(3) : "";
+  return v != null ? v.toFixed(4) : "";
 }
 
 function linhasBoletim(dados: DadosExportacaoBoletim) {
@@ -147,7 +147,7 @@ export function exportarBoletimExcel(dados: DadosExportacaoBoletim) {
   const linhaMediaFinal = linhaInicioTabela + 1 + linhas.length + 1;
   XLSX.utils.sheet_add_aoa(
     wsCabecalho,
-    [[`Média Final do Módulo`, dados.mediaFinalModulo.toFixed(3)]],
+    [[`Média Final do Módulo`, dados.mediaFinalModulo.toFixed(4)]],
     { origin: `A${linhaMediaFinal}` }
   );
   XLSX.utils.sheet_add_aoa(
@@ -224,7 +224,7 @@ export async function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
   const finalY = (doc as any).lastAutoTable.finalY + 8;
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(`Média Final do Módulo: ${dados.mediaFinalModulo.toFixed(3)}`, 105, finalY, { align: "center" });
+  doc.text(`Média Final do Módulo: ${dados.mediaFinalModulo.toFixed(4)}`, 105, finalY, { align: "center" });
   doc.setFont("helvetica", "normal");
 
   const assinaturaY = finalY + 25;
@@ -328,7 +328,7 @@ export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
           new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [
-              new TextRun({ text: `Média Final do Módulo: ${dados.mediaFinalModulo.toFixed(3)}`, bold: true }),
+              new TextRun({ text: `Média Final do Módulo: ${dados.mediaFinalModulo.toFixed(4)}`, bold: true }),
             ],
           }),
           new Paragraph({ text: "" }),

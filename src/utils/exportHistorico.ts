@@ -55,6 +55,7 @@ export interface DadosExportacaoHistorico {
   numeroRegistro: number;
   comandanteNome: string | null; // campo vermelho
   comandantePosto: string | null; // campo vermelho
+  grauConcluido: string | null; // ex: "o 2º Grau no(a)" (padrão) ou "o Curso de Bacharel em Direito pela" — campo vermelho, texto livre incluindo a preposição correta
   responsavelNome: string;
   responsavelPosto: string;
   responsavelFuncao: string;
@@ -107,10 +108,24 @@ function runVermelho(valor: string | null): TextRun {
   return new TextRun({ text: valor && valor.trim() ? valor : PLACEHOLDER, color: COR_VERMELHA });
 }
 
+// Igual a runVermelho, mas com um texto PADRÃO (preto, não-editável em
+// vermelho) quando o campo está vazio, em vez do placeholder "______" —
+// usado só para grauConcluido, cujo valor mais comum ("o 2º Grau no(a)")
+// não deveria acender como pendência a cada histórico gerado.
+function runGrauConcluido(valor: string | null): TextRun {
+  if (valor && valor.trim()) return new TextRun({ text: valor, color: COR_VERMELHA });
+  return runTexto("o 2º Grau no(a)");
+}
+
 function paragrafoAbertura(dados: DadosExportacaoHistorico): Paragraph {
   return new Paragraph({
     alignment: AlignmentType.JUSTIFIED,
     children: [
+      runTexto("O Sr(a) "),
+      runVermelho(dados.comandantePosto),
+      runTexto(" "),
+      runVermelho(dados.comandanteNome),
+      runTexto(" – Comandante da Academia de Polícia Militar Costa Verde - APMCV, "),
       runTexto(TEXTO_LEGAL_ABERTURA + " "),
       runTexto(`${dados.nomeAluno}, brasileiro(a), filho(a) de `),
       runVermelho(dados.filiacaoPai),
@@ -124,7 +139,9 @@ function paragrafoAbertura(dados: DadosExportacaoHistorico): Paragraph {
       runVermelho(dados.matriculaAcademia),
       runTexto(" RG PMMT "),
       runVermelho(dados.rgPm),
-      runTexto(`, ${TEXTO_LEGAL_ADMISSAO} no(a) `),
+      runTexto(`, ${TEXTO_LEGAL_ADMISSAO} `),
+      runGrauConcluido(dados.grauConcluido),
+      runTexto(" "),
       runVermelho(dados.escolaAnterior),
       runTexto(", no ano de "),
       runVermelho(dados.anoConclusaoEnsinoMedio),
