@@ -59,6 +59,7 @@ export interface Profile {
   email: string;
   cpf: string | null;
   matricula: string | null;
+  matricula_academia: string | null;
   role: AppRole;
   turma_id: string | null;
   senha_trocada: boolean;

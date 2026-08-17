@@ -44,7 +44,7 @@ interface EdicaoState {
   nome_completo: string;
   email: string;
   cpf: string;
-  matricula: string;
+  matriculaAcademia: string;
   // Aceita qualquer papel (pra exibir/preservar o valor atual mesmo quando é
   // 'admin_institucional' ou 'desenvolvedor'), mas o <select> de edição só
   // oferece "aluno"/"admin" como opção — os outros dois só mudam pelos
@@ -94,7 +94,7 @@ export function AdminUsersPanel() {
   const previaMatriculas = alunosOrdenados.map((p, i) => ({
     id: p.id,
     nome: p.nome_completo,
-    matriculaAtual: p.matricula,
+    matriculaAtual: p.matricula_academia,
     matriculaNova: gerarMatriculaDidatica(anoInclusao, numeroTurma, i + 1),
   }));
 
@@ -109,7 +109,7 @@ export function AdminUsersPanel() {
         continue;
       }
       const { data, error } = await supabase.functions.invoke("admin-update-user", {
-        body: { user_id: item.id, matricula: item.matriculaNova },
+        body: { user_id: item.id, matricula_academia: item.matriculaNova },
       });
       if (error || (data as any)?.error) {
         falhas.push({ nome: item.nome, erro: await extrairMensagemErroEdgeFunction(error, data) });
@@ -166,7 +166,7 @@ export function AdminUsersPanel() {
         nome_completo: nome,
         email,
         cpf: cpf || null,
-        matricula: matriculaNovo || null,
+        matricula_academia: matriculaNovo || null,
         senha_provisoria: senha,
         role,
         turma_id: turmaAtualId,
@@ -199,7 +199,7 @@ export function AdminUsersPanel() {
       nome_completo: p.nome_completo,
       email: p.email,
       cpf: p.cpf ?? "",
-      matricula: p.matricula ?? "",
+      matriculaAcademia: p.matricula_academia ?? "",
       role: p.role,
       nova_senha: "",
     });
@@ -220,7 +220,7 @@ export function AdminUsersPanel() {
         nome_completo: edicao.nome_completo,
         email: edicao.email,
         cpf: edicao.cpf || null,
-        matricula: edicao.matricula || null,
+        matricula_academia: edicao.matriculaAcademia || null,
         role: edicao.role,
         nova_senha: edicao.nova_senha || undefined,
       },
@@ -286,8 +286,8 @@ export function AdminUsersPanel() {
               <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" />
             </div>
             <div className="space-y-1">
-              <Label>Matrícula (opcional)</Label>
-              <Input value={matriculaNovo} onChange={(e) => setMatriculaNovo(e.target.value)} placeholder="ex: 23.0001.1" />
+              <Label>Matrícula Acadêmica (opcional)</Label>
+              <Input value={matriculaNovo} onChange={(e) => setMatriculaNovo(e.target.value)} placeholder="ex: 2025.2301.1" />
             </div>
             <div className="space-y-1">
               <Label>Senha provisória</Label>
@@ -406,7 +406,7 @@ export function AdminUsersPanel() {
                     <TableHead>Nome</TableHead>
                     <TableHead>E-mail</TableHead>
                     <TableHead>CPF</TableHead>
-                    <TableHead>Matrícula</TableHead>
+                    <TableHead>Matrícula Acadêmica</TableHead>
                     <TableHead>Perfil</TableHead>
                     <TableHead className="w-32 text-right">Ações</TableHead>
                   </TableRow>
@@ -444,8 +444,8 @@ export function AdminUsersPanel() {
                             <TableCell>
                               <Input
                                 className="h-8"
-                                value={edicao.matricula}
-                                onChange={(e) => setEdicao({ ...edicao, matricula: e.target.value })}
+                                value={edicao.matriculaAcademia}
+                                onChange={(e) => setEdicao({ ...edicao, matriculaAcademia: e.target.value })}
                                 placeholder="—"
                               />
                             </TableCell>
@@ -486,7 +486,7 @@ export function AdminUsersPanel() {
                             <TableCell className="font-medium">{p.nome_completo}</TableCell>
                             <TableCell>{p.email}</TableCell>
                             <TableCell>{p.cpf ?? "—"}</TableCell>
-                            <TableCell>{p.matricula ?? "—"}</TableCell>
+                            <TableCell>{p.matricula_academia ?? "—"}</TableCell>
                             <TableCell>
                               <Badge variant={p.role === "aluno" ? "secondary" : "default"}>
                                 {p.role === "desenvolvedor"

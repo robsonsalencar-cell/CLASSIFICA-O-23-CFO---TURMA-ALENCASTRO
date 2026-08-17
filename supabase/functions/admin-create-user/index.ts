@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     // Cliente admin (service_role) para checar permissão e criar o novo usuário
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { email, nome_completo, cpf, matricula, senha_provisoria, role, turma_id } = await req.json();
+    const { email, nome_completo, cpf, matricula_academia, senha_provisoria, role, turma_id } = await req.json();
 
     if (!email || !nome_completo || !senha_provisoria || !turma_id) {
       return new Response(JSON.stringify({ error: "email, nome_completo, senha_provisoria e turma_id são obrigatórios." }), {
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     // aqui só precisamos gravar o turma_id e a matrícula, que o trigger não conhece.
     const { error: turmaError } = await adminClient
       .from("profiles")
-      .update({ turma_id, matricula: matricula || null })
+      .update({ turma_id, matricula_academia: matricula_academia || null })
       .eq("id", created.user.id);
 
     if (turmaError) {

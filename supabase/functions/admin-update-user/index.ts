@@ -47,7 +47,8 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const { user_id, nome_completo, email, cpf, matricula, role, nova_senha, turma_id } = await req.json();
+    const { user_id, nome_completo, email, cpf, matricula, matricula_academia, role, nova_senha, turma_id } =
+      await req.json();
 
     if (!user_id) {
       return new Response(JSON.stringify({ error: "user_id é obrigatório." }), {
@@ -120,6 +121,7 @@ Deno.serve(async (req) => {
     if (email) patch.email = email;
     if (cpf !== undefined) patch.cpf = cpf || null;
     if (matricula !== undefined) patch.matricula = matricula || null;
+    if (matricula_academia !== undefined) patch.matricula_academia = matricula_academia || null;
     if (role) patch.role = role;
     if (turma_id) patch.turma_id = turma_id;
 
