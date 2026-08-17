@@ -65,12 +65,14 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
   const [erro, setErro] = useState<string | null>(null);
   const [alunosExtraidos, setAlunosExtraidos] = useState<AlunoExtraido[]>([]);
   const [alunosDaTurma, setAlunosDaTurma] = useState<AlunoOpcao[]>([]);
+  const [errosSalvamento, setErrosSalvamento] = useState<{ nome: string; erro: string }[]>([]);
 
   function resetar() {
     setMateria("");
     setArquivo(null);
     setErro(null);
     setAlunosExtraidos([]);
+    setErrosSalvamento([]);
   }
 
   async function handleProcessar() {
@@ -146,7 +148,7 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
 
     setSalvando(true);
     let sucesso = 0;
-    let falhas = 0;
+    const falhasDetalhadas: { nome: string; erro: string }[] = [];
 
     for (const a of alunosExtraidos) {
       const nota_final = calcularNotaFinalMulti(a.vc_lista, a.vf, materia);
@@ -157,16 +159,27 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
         vf: a.vf,
         nota_final,
       });
-      if (error) falhas++;
+      if (error) falhasDetalhadas.push({ nome: a.nome, erro: error });
       else sucesso++;
     }
 
     setSalvando(false);
+    setErrosSalvamento(falhasDetalhadas);
     toast({
-      title: `Importação concluída: ${sucesso} salvos${falhas > 0 ? `, ${falhas} com erro` : ""}`,
+      title: `Importação concluída: ${sucesso} salvos${
+        falhasDetalhadas.length > 0 ? `, ${falhasDetalhadas.length} com erro` : ""
+      }`,
+      variant: falhasDetalhadas.length > 0 ? "destructive" : undefined,
     });
-    setAberto(false);
-    resetar();
+
+    // Se houve QUALQUER falha, mantemos o diálogo aberto (mostrando o motivo
+    // de cada erro abaixo da tabela) em vez de fechar como se tudo tivesse
+    // dado certo — assim dá pra corrigir e tentar salvar de novo sem
+    // precisar reprocessar o PDF do zero.
+    if (falhasDetalhadas.length === 0) {
+      setAberto(false);
+      resetar();
+    }
     onImportado?.(materia);
   }
 
@@ -300,6 +313,20 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
                   </TableBody>
                 </Table>
               </div>
+              {errosSalvamento.length > 0 && (
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1">
+                  <p className="text-sm font-semibold text-destructive">
+                    {errosSalvamento.length} aluno(s) não foram salvos:
+                  </p>
+                  <ul className="text-xs text-destructive space-y-0.5 max-h-32 overflow-y-auto">
+                    {errosSalvamento.map((f, i) => (
+                      <li key={i}>
+                        <strong>{f.nome}</strong>: {f.erro}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <DialogFooter>
                 <Button variant="outline" onClick={resetar}>
                   Cancelar / Recomeçar
