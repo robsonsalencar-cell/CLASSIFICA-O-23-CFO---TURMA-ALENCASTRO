@@ -54,6 +54,13 @@ export function useAlunosModulo(tabela: TabelaModulo, listaMaterias: string[]) {
     >();
 
     for (const row of rows) {
+      // Só entra na média do módulo quem está na lista oficial de matérias
+      // (listaMaterias) — protege contra qualquer nome de matéria fora do
+      // currículo vigente (ex: uma matéria retirada temporariamente da
+      // contabilidade, ou um erro de digitação) inflar ou distorcer a média
+      // do aluno. A nota continua salva no banco, só não entra no cálculo.
+      if (!listaMaterias.includes(row.materia)) continue;
+
       if (!porAluno.has(row.aluno_id)) {
         porAluno.set(row.aluno_id, {
           nome: row.aluno_nome ?? "—",
