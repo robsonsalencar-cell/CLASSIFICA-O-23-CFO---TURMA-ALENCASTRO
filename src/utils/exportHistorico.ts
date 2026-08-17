@@ -161,8 +161,16 @@ function tabelaAno(
   const headerCell = (texto: string) =>
     new DocxTableCell({ children: [new Paragraph({ text: texto, alignment: AlignmentType.CENTER })] });
   const bodyCell = (texto: string) => new DocxTableCell({ children: [new Paragraph({ text: texto })] });
+  const bodyCellCentro = (texto: string) =>
+    new DocxTableCell({ children: [new Paragraph({ text: texto, alignment: AlignmentType.CENTER })] });
   const bodyCellBold = (texto: string) =>
     new DocxTableCell({ children: [new Paragraph({ children: [new TextRun({ text: texto, bold: true })] })] });
+  const bodyCellBoldCentro = (texto: string) =>
+    new DocxTableCell({
+      children: [
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: texto, bold: true })] }),
+      ],
+    });
 
   const somaCargaHoraria = disciplinas.reduce((total, d) => total + d.cargaHoraria, 0);
 
@@ -173,14 +181,18 @@ function tabelaAno(
       ...disciplinas.map(
         (d) =>
           new DocxTableRow({
-            children: [d.nome, String(d.cargaHoraria), nf(d.mediaFinal) || PLACEHOLDER].map(bodyCell),
+            children: [
+              bodyCell(d.nome),
+              bodyCellCentro(String(d.cargaHoraria)),
+              bodyCellCentro(nf(d.mediaFinal) || PLACEHOLDER),
+            ],
           })
       ),
       new DocxTableRow({
         children: [
           bodyCellBold("Total da Carga Curricular e Média"),
-          bodyCellBold(String(somaCargaHoraria)),
-          bodyCellBold(nf(media) || PLACEHOLDER),
+          bodyCellBoldCentro(String(somaCargaHoraria)),
+          bodyCellBoldCentro(nf(media) || PLACEHOLDER),
         ],
       }),
     ],
