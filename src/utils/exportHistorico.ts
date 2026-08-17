@@ -52,6 +52,11 @@ export interface DadosExportacaoHistorico {
   mediaCfo3: number | null;
   mediaFinal: number;
   rank: number | null;
+  // Não usado mais para exibição — "Registro nº" no documento agora mostra
+  // matriculaAcademia (por instrução do usuário em 17/08/2026: o registro do
+  // histórico deve ser o mesmo número da matrícula acadêmica do aluno, não
+  // um contador sequencial separado). Mantido no tipo/plumbing por
+  // enquanto, sem uso visível.
   numeroRegistro: number;
   comandanteNome: string | null; // campo vermelho
   comandantePosto: string | null; // campo vermelho
@@ -244,7 +249,7 @@ export async function exportarHistoricoWord(dados: DadosExportacaoHistorico) {
           ...tabelaAno("1º Ano CFO", dados.anoLetivoCfo1, dados.disciplinasCfo1, dados.mediaCfo1),
           ...tabelaAno("2º Ano CFO", dados.anoLetivoCfo2, dados.disciplinasCfo2, dados.mediaCfo2),
           ...tabelaAno("3º Ano CFO", dados.anoLetivoCfo3, dados.disciplinasCfo3, dados.mediaCfo3),
-          new Paragraph({ text: `Registro nº: ${dados.numeroRegistro}` }),
+          new Paragraph({ text: `Registro nº: ${dados.matriculaAcademia ?? PLACEHOLDER}` }),
           new Paragraph({
             text: `Nota de Aprovação: ${dados.mediaFinal.toFixed(4)} (${notaPorExtenso(dados.mediaFinal)})`,
           }),
@@ -304,7 +309,7 @@ export function exportarHistoricoExcel(dados: DadosExportacaoHistorico) {
     ["Escola anterior", dados.escolaAnterior ?? "—"],
     ["Ano de conclusão do 2º grau", dados.anoConclusaoEnsinoMedio ?? "—"],
     [],
-    ["Registro nº", dados.numeroRegistro],
+    ["Registro nº", dados.matriculaAcademia ?? "—"],
     ["Nota de Aprovação", `${dados.mediaFinal.toFixed(4)} (${notaPorExtenso(dados.mediaFinal)})`],
     ["Classificação", `${dados.rank ?? "—"}º Lugar`],
     [],
