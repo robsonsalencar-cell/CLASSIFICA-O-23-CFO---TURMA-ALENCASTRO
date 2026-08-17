@@ -17,9 +17,28 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserPlus, Users, Pencil, Save, X, KeyRound, Trash2 } from "lucide-react";
+import { Loader2, UserPlus, Users, Pencil, Save, X, KeyRound, Trash2, Hash } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useTurma } from "@/contexts/TurmaContext";
+
+/**
+ * Gera a matrícula didática no formato {ano}.{turma}{sequencial}.{curso},
+ * ex: 2025.2311.1 — 2025 = ano de inclusão na APM, 23 = número da turma,
+ * 11 = 11º aluno em ordem alfabética dentro da turma, 1 = código do curso
+ * (CFO). Regra definida pelo usuário em 17/08/2026, baseada no padrão
+ * histórico da APMCV (ex: 94.201.1 = turma pioneira de 1994).
+ *
+ * IMPORTANTE: essa matrícula didática (interna desta plataforma) é
+ * diferente da matrícula/registro oficial do Estado — não confundir com
+ * números repassados por outras turmas para fins de registro estadual.
+ */
+function gerarMatriculaDidatica(ano: string, numeroTurma: string, sequencial: number): string {
+  const anoStr = ano.trim();
+  const turmaStr = numeroTurma.trim().padStart(2, "0");
+  const seqStr = String(sequencial).padStart(2, "0");
+  const CODIGO_CURSO = "1"; // 1 = CFO (único curso desta plataforma até o momento)
+  return `${anoStr}.${turmaStr}${seqStr}.${CODIGO_CURSO}`;
+}
 
 interface EdicaoState {
   nome_completo: string;
@@ -54,6 +73,62 @@ export function AdminUsersPanel() {
   const [edicao, setEdicao] = useState<EdicaoState | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
+
+  // geração automática de matrícula didática
+  const [gerandoMatriculas, setGerandoMatriculas] = useState(false);
+  const [numeroTurma, setNumeroTurma] = useState(() => {
+    const m = turmaAtual?.nome_turma.match(/\d+/);
+    return m ? m[0] : "";
+  });
+  useEffect(() => {
+    const m = turmaAtual?.nome_turma.match(/\d+/);
+    setNumeroTurma(m ? m[0] : "");
+  }, [turmaAtual?.id]);
+
+  const alunosOrdenados = profiles
+    .filter((p) => p.role === "aluno")
+    .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
+
+  const anoInclusao = turmaAtual?.ano_letivo_cfo1 || String(new Date().getFullYear());
+
+  const previaMatriculas = alunosOrdenados.map((p, i) => ({
+    id: p.id,
+    nome: p.nome_completo,
+    matriculaAtual: p.matricula,
+    matriculaNova: gerarMatriculaDidatica(anoInclusao, numeroTurma, i + 1),
+  }));
+
+  async function handleGerarMatriculas() {
+    setGerandoMatriculas(true);
+    let sucesso = 0;
+    const falhas: { nome: string; erro: string }[] = [];
+
+    for (const item of previaMatriculas) {
+      if (item.matriculaAtual === item.matriculaNova) {
+        sucesso++;
+        continue;
+      }
+      const { data, error } = await supabase.functions.invoke("admin-update-user", {
+        body: { user_id: item.id, matricula: item.matriculaNova },
+      });
+      if (error || (data as any)?.error) {
+        falhas.push({ nome: item.nome, erro: await extrairMensagemErroEdgeFunction(error, data) });
+      } else {
+        sucesso++;
+      }
+    }
+
+    setGerandoMatriculas(false);
+    toast({
+      title: `Matrículas geradas: ${sucesso} de ${previaMatriculas.length}`,
+      description:
+        falhas.length > 0
+          ? `Falhas: ${falhas.map((f) => `${f.nome} (${f.erro})`).join("; ")}`
+          : undefined,
+      variant: falhas.length > 0 ? "destructive" : undefined,
+    });
+    carregarPerfis();
+  }
 
   async function carregarPerfis() {
     if (!turmaAtualId) return;
@@ -250,10 +325,73 @@ export function AdminUsersPanel() {
 
       <Card className="border-primary/30">
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            Usuários cadastrados ({profiles.length}) {turmaAtual && <span className="text-muted-foreground font-normal text-sm">— {turmaAtual.nome_turma}</span>}
-          </CardTitle>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Usuários cadastrados ({profiles.length}) {turmaAtual && <span className="text-muted-foreground font-normal text-sm">— {turmaAtual.nome_turma}</span>}
+            </CardTitle>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={alunosOrdenados.length === 0}>
+                  <Hash className="w-4 h-4 mr-2" />
+                  Gerar matrículas automaticamente
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="max-w-2xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Gerar matrículas didáticas para {alunosOrdenados.length} aluno(s)?</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3 text-sm">
+                      <p>
+                        Formato: <strong>ano.turma+sequencial.curso</strong> (ex: 2025.2311.1 = ano 2025, turma
+                        23, 11º aluno em ordem alfabética, curso CFO). Isso sobrescreve a matrícula atual de
+                        qualquer aluno que já tenha uma diferente da gerada.
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-3 items-center">
+                        <Label className="text-xs">Ano de inclusão (APM)</Label>
+                        <Input className="h-8" value={anoInclusao} disabled />
+                        <Label className="text-xs">Número da turma</Label>
+                        <Input
+                          className="h-8"
+                          value={numeroTurma}
+                          onChange={(e) => setNumeroTurma(e.target.value)}
+                        />
+                      </div>
+                      <div className="max-h-64 overflow-y-auto border rounded-md">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Aluno</TableHead>
+                              <TableHead>Matrícula atual</TableHead>
+                              <TableHead>Nova matrícula</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {previaMatriculas.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell className="text-xs">{item.nome}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                  {item.matriculaAtual ?? "—"}
+                                </TableCell>
+                                <TableCell className="text-xs font-medium">{item.matriculaNova}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleGerarMatriculas} disabled={gerandoMatriculas}>
+                    {gerandoMatriculas && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Confirmar e gerar {previaMatriculas.length} matrículas
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
