@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase, Profile, AppRole } from "@/lib/supabaseClient";
+import { supabase, Profile, AppRole, extrairMensagemErroEdgeFunction } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,7 +102,7 @@ export function AdminUsersPanel() {
     if (error || (data as any)?.error) {
       toast({
         title: "Erro ao criar usuário",
-        description: (data as any)?.error ?? error?.message,
+        description: await extrairMensagemErroEdgeFunction(error, data),
         variant: "destructive",
       });
       return;
@@ -156,7 +156,7 @@ export function AdminUsersPanel() {
     if (error || (data as any)?.error) {
       toast({
         title: "Erro ao salvar alterações",
-        description: (data as any)?.error ?? error?.message,
+        description: await extrairMensagemErroEdgeFunction(error, data),
         variant: "destructive",
       });
       return;
@@ -177,7 +177,7 @@ export function AdminUsersPanel() {
     if (error || (data as any)?.error) {
       toast({
         title: "Erro ao excluir usuário",
-        description: (data as any)?.error ?? error?.message,
+        description: await extrairMensagemErroEdgeFunction(error, data),
         variant: "destructive",
       });
       return;

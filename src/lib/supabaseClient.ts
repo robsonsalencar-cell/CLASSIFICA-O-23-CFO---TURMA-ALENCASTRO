@@ -16,6 +16,40 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+/**
+ * Extrai a mensagem de erro REAL de uma chamada supabase.functions.invoke().
+ *
+ * Quando uma Edge Function retorna um status HTTP não-2xx, o supabase-js NÃO
+ * lê automaticamente o corpo JSON da resposta — ele só expõe uma mensagem
+ * genérica em error.message ("Edge Function returned a non-2xx status
+ * code"), escondendo a causa real (que a função já devolve certinho no
+ * corpo, ex: {"error": "e-mail já cadastrado"}). O corpo de verdade fica em
+ * error.context, o objeto Response bruto, que essa função lê.
+ *
+ * Ver histórico: mesmo bug identificado e corrigido primeiro em
+ * ImportarDiarioPdf.tsx (17/08/2026) — esta versão é a genérica/reutilizável
+ * pra qualquer tela que chame Edge Functions.
+ */
+export async function extrairMensagemErroEdgeFunction(
+  error: { message?: string; context?: unknown } | null,
+  data: unknown
+): Promise<string> {
+  const doCorpoJaParsado = (data as any)?.error;
+  if (doCorpoJaParsado) return doCorpoJaParsado;
+
+  const contexto = (error as any)?.context;
+  if (contexto && typeof contexto.json === "function") {
+    try {
+      const corpo = await contexto.json();
+      if (corpo?.error) return corpo.error;
+    } catch {
+      // corpo não era JSON válido (ex: erro de rede/proxy) — cai no fallback abaixo
+    }
+  }
+
+  return error?.message ?? "Erro desconhecido";
+}
+
 // Tipos de apoio (ajuste conforme o schema.sql)
 export type AppRole = "admin" | "admin_institucional" | "aluno" | "desenvolvedor";
 
