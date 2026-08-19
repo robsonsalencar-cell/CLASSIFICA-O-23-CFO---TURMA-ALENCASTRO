@@ -1,7 +1,6 @@
 import { useState, FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +9,6 @@ import { Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 
 export default function Login() {
   const { signIn } = useAuth();
-  const { config } = useConfiguracaoTurma();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,15 +37,15 @@ export default function Login() {
       <div className="relative w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <img
-            src={config.brasao_url ?? "/lovable-uploads/brasao-novo.png"}
-            alt={config.nome_turma}
+            src="/brasao-apmcv-oficial.png"
+            alt="Academia de Polícia Militar Costa Verde"
             className="w-44 h-44 md:w-52 md:h-52 object-contain drop-shadow-2xl mb-4"
           />
           <p className="text-2xl font-bold tracking-wide bg-gradient-to-r from-primary/90 via-[hsl(45,100%,70%)] to-primary/90 bg-clip-text text-transparent uppercase text-center">
-            Painel {config.nome_turma}
+            Painel CFO
           </p>
           <p className="text-sm text-muted-foreground mt-1 text-center">
-            {config.subtitulo_turma} — acesso restrito
+            Academia de Polícia Militar Costa Verde — PMMT — acesso restrito
           </p>
         </div>
 
