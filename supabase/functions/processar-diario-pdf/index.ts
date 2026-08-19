@@ -71,7 +71,10 @@ Deno.serve(async (req) => {
       .eq("id", caller.id)
       .single();
 
-    if (!callerProfile || (callerProfile.role !== "admin" && callerProfile.role !== "desenvolvedor")) {
+    if (
+      !callerProfile ||
+      !["admin", "admin_institucional", "desenvolvedor"].includes(callerProfile.role)
+    ) {
       return new Response(JSON.stringify({ error: "Apenas administradores podem importar diários." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -85,6 +88,24 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Autoridade real de "pode editar notas desta turma" — mesma função SQL
+    // usada pela RLS em todo o resto do sistema (pode_editar_turma), que já
+    // trata corretamente admin_institucional (inclusive a regra de turma
+    // finalizada/autorização institucional). Substituiu uma checagem manual
+    // de role que não reconhecia admin_institucional e bloqueava a
+    // importação de diário pra esse papel.
+    const { data: podeEditar, error: erroPermissao } = await adminClient.rpc("pode_editar_turma", {
+      p_turma_id: turma_id,
+      p_usuario_id: caller.id,
+    });
+
+    if (erroPermissao || !podeEditar) {
+      return new Response(
+        JSON.stringify({ error: "Você não tem permissão para importar diários nesta turma." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Busca os alunos da TURMA EM FOCO que estão matriculados neste módulo

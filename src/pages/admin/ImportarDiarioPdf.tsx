@@ -199,11 +199,13 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
                     <SelectValue placeholder="Selecione a disciplina" />
                   </SelectTrigger>
                   <SelectContent>
-                    {listaMaterias.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
+                    {[...listaMaterias]
+                      .sort((a, b) => a.localeCompare(b, "pt-BR"))
+                      .map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

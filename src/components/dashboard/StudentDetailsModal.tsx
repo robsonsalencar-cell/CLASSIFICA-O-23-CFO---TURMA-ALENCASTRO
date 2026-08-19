@@ -13,11 +13,11 @@ import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { AlunoModulo } from "@/hooks/useAlunosModulo";
 import { supabase } from "@/lib/supabaseClient";
 import { useConfiguracaoTurma, useTurma } from "@/contexts/TurmaContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { exportarAlunoCSV, exportarAlunoPDF, exportarAlunoXLSX } from "@/utils/exportAluno";
-import { exportarBoletimPDF, exportarBoletimWord, exportarBoletimExcel } from "@/utils/exportBoletim";
+import { exportarBoletimPDF, exportarBoletimWord } from "@/utils/exportBoletim";
 import {
   exportarHistoricoWord,
-  exportarHistoricoExcel,
   montarDisciplinasHistorico,
   DadosExportacaoHistorico,
 } from "@/utils/exportHistorico";
@@ -56,19 +56,26 @@ export function StudentDetailsModal({
 }: StudentDetailsModalProps) {
   const { config } = useConfiguracaoTurma();
   const { atribuirNumeroRegistroHistorico } = useTurma();
+  const { profile } = useAuth();
   const [boletimDialogAberto, setBoletimDialogAberto] = useState(false);
-  const [boletimFormato, setBoletimFormato] = useState<"pdf" | "word" | "xlsx" | null>(null);
+  const [boletimFormato, setBoletimFormato] = useState<"pdf" | "word" | null>(null);
   const [boletimInicio, setBoletimInicio] = useState("");
   const [boletimTermino, setBoletimTermino] = useState("");
   const [gerandoBoletim, setGerandoBoletim] = useState(false);
   const [historicoDialogAberto, setHistoricoDialogAberto] = useState(false);
-  const [historicoFormato, setHistoricoFormato] = useState<"word" | "xlsx" | null>(null);
+  const [historicoFormato, setHistoricoFormato] = useState<"word" | null>(null);
   const [historicoAlunoId, setHistoricoAlunoId] = useState<string | null>(null);
   const [gerandoHistorico, setGerandoHistorico] = useState(false);
   const { dados: bioAluno, loading: carregandoBio } = useDadosBiograficosAluno(historicoAlunoId);
   if (!student) return null;
 
   const daGeral = Boolean((student as any).cfoAverages);
+  // Relatório individual (PDF/Excel/CSV): um cadete comum só pode exportar
+  // o PRÓPRIO relatório, nunca o de um colega — mesmo que a Classificação
+  // Geral/ranking esteja visível pra turma toda (toggle "Ranking p/
+  // alunos"). Admins continuam podendo exportar o de qualquer aluno.
+  const podeExportarRelatorioIndividual =
+    isAdmin || profile?.id === (student as any).aluno_id;
   const detalhado = (student as AlunoModulo).gradesDetalhado ?? {};
   const materias = Object.entries(detalhado).sort(
     (a, b) => (b[1].nota_final ?? 0) - (a[1].nota_final ?? 0)
@@ -103,7 +110,7 @@ export function StudentDetailsModal({
     return null;
   }
 
-  function abrirDialogoBoletim(formato: "pdf" | "word" | "xlsx") {
+  function abrirDialogoBoletim(formato: "pdf" | "word") {
     setBoletimFormato(formato);
     setBoletimDialogAberto(true);
   }
@@ -131,14 +138,13 @@ export function StudentDetailsModal({
       responsavelFuncao: config.responsavel_assinatura_funcao,
     };
     if (boletimFormato === "pdf") await exportarBoletimPDF(dados);
-    else if (boletimFormato === "word") await exportarBoletimWord(dados);
-    else exportarBoletimExcel(dados);
+    else await exportarBoletimWord(dados);
     setGerandoBoletim(false);
     setBoletimDialogAberto(false);
     setBoletimFormato(null);
   }
 
-  function abrirDialogoHistorico(formato: "word" | "xlsx") {
+  function abrirDialogoHistorico(formato: "word") {
     if (!student) return;
     setHistoricoFormato(formato);
     setHistoricoAlunoId((student as AlunoModulo).aluno_id);
@@ -191,8 +197,7 @@ export function StudentDetailsModal({
       dataEmissao: dataPorExtenso(new Date()),
     };
 
-    if (historicoFormato === "word") await exportarHistoricoWord(dados);
-    else exportarHistoricoExcel(dados);
+    await exportarHistoricoWord(dados);
     setGerandoHistorico(false);
     setHistoricoDialogAberto(false);
     setHistoricoFormato(null);
@@ -222,9 +227,6 @@ export function StudentDetailsModal({
                     <DropdownMenuItem onClick={() => abrirDialogoBoletim("pdf")}>
                       <FileText className="w-4 h-4 mr-2 text-red-500" /> PDF
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => abrirDialogoBoletim("xlsx")}>
-                      <FileSpreadsheet className="w-4 h-4 mr-2 text-green-500" /> Excel (.xlsx)
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
@@ -239,30 +241,29 @@ export function StudentDetailsModal({
                     <DropdownMenuItem onClick={() => abrirDialogoHistorico("word")}>
                       <FileText className="w-4 h-4 mr-2 text-blue-500" /> Word (.docx)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => abrirDialogoHistorico("xlsx")}>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {podeExportarRelatorioIndividual && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="w-4 h-4 mr-1" /> Exportar
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExport("pdf")} className="text-red-500 focus:text-red-500 font-medium">
+                      <FileText className="w-4 h-4 mr-2 text-red-500" /> PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport("xlsx")} className="text-green-500 focus:text-green-500 font-medium">
                       <FileSpreadsheet className="w-4 h-4 mr-2 text-green-500" /> Excel (.xlsx)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport("csv")} className="text-blue-500 focus:text-blue-500 font-medium">
+                      <FileDown className="w-4 h-4 mr-2 text-blue-500" /> CSV
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Download className="w-4 h-4 mr-1" /> Exportar
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleExport("pdf")} className="text-red-500 focus:text-red-500 font-medium">
-                    <FileText className="w-4 h-4 mr-2 text-red-500" /> PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport("xlsx")} className="text-green-500 focus:text-green-500 font-medium">
-                    <FileSpreadsheet className="w-4 h-4 mr-2 text-green-500" /> Excel (.xlsx)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport("csv")} className="text-blue-500 focus:text-blue-500 font-medium">
-                    <FileDown className="w-4 h-4 mr-2 text-blue-500" /> CSV
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
               <Badge
                 variant="secondary"
                 className={cn("text-sm", daGeral && "texto-trofeu-dourado bg-transparent border border-primary/40 font-bold text-base")}
@@ -399,7 +400,7 @@ export function StudentDetailsModal({
             </div>
             <Button onClick={gerarBoletim} disabled={gerandoBoletim} className="w-full">
               {gerandoBoletim && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Gerar {boletimFormato === "pdf" ? "PDF" : boletimFormato === "word" ? "Word" : "Excel"}
+              Gerar {boletimFormato === "pdf" ? "PDF" : "Word"}
             </Button>
           </div>
         </DialogContent>
@@ -423,7 +424,7 @@ export function StudentDetailsModal({
                 </p>
                 <Button onClick={gerarHistorico} disabled={gerandoHistorico} className="w-full">
                   {gerandoHistorico && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Gerar {historicoFormato === "word" ? "Word" : "Excel"}
+                  Gerar Word
                 </Button>
               </>
             )}

@@ -216,8 +216,9 @@ export async function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
       l.mediaFinal, // repetida no fim, igual ao modelo oficial — 2ª Época não recalcula
     ]),
     theme: "grid",
-    headStyles: { fillColor: [30, 58, 138], fontSize: 7 },
-    styles: { fontSize: 7 },
+    headStyles: { fillColor: [30, 58, 138], fontSize: 7, halign: "center" },
+    styles: { fontSize: 7, halign: "center" },
+    columnStyles: { 0: { halign: "left" } },
     margin: { left: 10, right: 10 },
   });
 
@@ -229,9 +230,11 @@ export async function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
 
   const assinaturaY = finalY + 25;
   doc.setFontSize(10);
-  doc.text(dados.responsavelNome.toUpperCase(), 105, assinaturaY, { align: "center" });
+  doc.text(`${dados.responsavelNome.toUpperCase()} - ${dados.responsavelPosto}`, 105, assinaturaY, {
+    align: "center",
+  });
   doc.setFontSize(8);
-  doc.text(`${dados.responsavelPosto} — ${dados.responsavelFuncao}`, 105, assinaturaY + 5, { align: "center" });
+  doc.text(dados.responsavelFuncao, 105, assinaturaY + 5, { align: "center" });
 
   doc.save(nomeArquivo(dados, "pdf"));
 }
@@ -333,9 +336,12 @@ export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
           }),
           new Paragraph({ text: "" }),
           new Paragraph({ text: "" }),
-          new Paragraph({ text: dados.responsavelNome.toUpperCase(), alignment: AlignmentType.CENTER }),
           new Paragraph({
-            text: `${dados.responsavelPosto} — ${dados.responsavelFuncao}`,
+            text: `${dados.responsavelNome.toUpperCase()} - ${dados.responsavelPosto}`,
+            alignment: AlignmentType.CENTER,
+          }),
+          new Paragraph({
+            text: dados.responsavelFuncao,
             alignment: AlignmentType.CENTER,
           }),
         ],

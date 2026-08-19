@@ -119,7 +119,7 @@ function runVermelho(valor: string | null): TextRun {
 // não deveria acender como pendência a cada histórico gerado.
 function runGrauConcluido(valor: string | null): TextRun {
   if (valor && valor.trim()) return new TextRun({ text: valor, color: COR_VERMELHA });
-  return runTexto("o 2º Grau no(a)");
+  return runTexto("o Curso de Bacharel em Direito pela");
 }
 
 function paragrafoAbertura(dados: DadosExportacaoHistorico): Paragraph {
@@ -259,20 +259,30 @@ export async function exportarHistoricoWord(dados: DadosExportacaoHistorico) {
           new Paragraph({ text: "" }),
           new Paragraph({ text: `APMCV em Várzea Grande-MT, ${dados.dataEmissao}.` }),
           new Paragraph({ text: "" }),
-          new Paragraph({ text: "" }),
-          new Paragraph({ text: dados.responsavelNome.toUpperCase(), alignment: AlignmentType.CENTER }),
           new Paragraph({
-            text: `${dados.responsavelPosto} — ${dados.responsavelFuncao}`,
+            alignment: AlignmentType.CENTER,
+            children: [
+              runVermelho(dados.comandanteNome?.toUpperCase() ?? null),
+              runTexto(" - "),
+              runVermelho(dados.comandantePosto),
+            ],
+          }),
+          new Paragraph({
+            text: "Comandante da APM Costa Verde",
             alignment: AlignmentType.CENTER,
           }),
           new Paragraph({ text: "" }),
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [runVermelho(dados.comandanteNome?.toUpperCase() ?? null)],
+            children: [
+              runTexto(dados.responsavelNome.toUpperCase()),
+              runTexto(" - "),
+              runTexto(dados.responsavelPosto),
+            ],
           }),
           new Paragraph({
+            text: dados.responsavelFuncao,
             alignment: AlignmentType.CENTER,
-            children: [runVermelho(dados.comandantePosto), runTexto(" — Comandante da APMCV")],
           }),
         ],
       },
