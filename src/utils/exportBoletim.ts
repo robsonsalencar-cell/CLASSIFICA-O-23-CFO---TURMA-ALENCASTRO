@@ -12,6 +12,7 @@ import {
   ImageRun,
   AlignmentType,
   WidthType,
+  VerticalAlign,
 } from "docx";
 import { DetalheMateria } from "@/hooks/useAlunosModulo";
 import { TEXTO_INSTITUCIONAL, BRASAO_OFICIAL_APMCV_URL } from "@/config/documentosOficiais";
@@ -216,8 +217,8 @@ export async function exportarBoletimPDF(dados: DadosExportacaoBoletim) {
       l.mediaFinal, // repetida no fim, igual ao modelo oficial — 2ª Época não recalcula
     ]),
     theme: "grid",
-    headStyles: { fillColor: [30, 58, 138], fontSize: 7, halign: "center" },
-    styles: { fontSize: 7, halign: "center" },
+    headStyles: { fillColor: [30, 58, 138], fontSize: 7, halign: "center", valign: "middle" },
+    styles: { fontSize: 7, halign: "center", valign: "middle" },
     columnStyles: { 0: { halign: "left" } },
     margin: { left: 10, right: 10 },
   });
@@ -245,11 +246,13 @@ export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
 
   const headerCell = (texto: string) =>
     new DocxTableCell({
+      verticalAlign: VerticalAlign.CENTER,
       children: [new Paragraph({ text: texto, alignment: AlignmentType.CENTER })],
       width: { size: 10, type: WidthType.PERCENTAGE },
     });
   const bodyCell = (texto: string) =>
     new DocxTableCell({
+      verticalAlign: VerticalAlign.CENTER,
       children: [new Paragraph({ text: texto, alignment: AlignmentType.CENTER })],
     });
 

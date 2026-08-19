@@ -10,6 +10,7 @@ import {
   ImageRun,
   AlignmentType,
   WidthType,
+  VerticalAlign,
 } from "docx";
 import {
   TEXTO_INSTITUCIONAL_HISTORICO,
@@ -164,14 +165,25 @@ function tabelaAno(
   media: number | null
 ): (Paragraph | DocxTable)[] {
   const headerCell = (texto: string) =>
-    new DocxTableCell({ children: [new Paragraph({ text: texto, alignment: AlignmentType.CENTER })] });
-  const bodyCell = (texto: string) => new DocxTableCell({ children: [new Paragraph({ text: texto })] });
+    new DocxTableCell({
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ text: texto, alignment: AlignmentType.CENTER })],
+    });
+  const bodyCell = (texto: string) =>
+    new DocxTableCell({ verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ text: texto })] });
   const bodyCellCentro = (texto: string) =>
-    new DocxTableCell({ children: [new Paragraph({ text: texto, alignment: AlignmentType.CENTER })] });
+    new DocxTableCell({
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ text: texto, alignment: AlignmentType.CENTER })],
+    });
   const bodyCellBold = (texto: string) =>
-    new DocxTableCell({ children: [new Paragraph({ children: [new TextRun({ text: texto, bold: true })] })] });
+    new DocxTableCell({
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ children: [new TextRun({ text: texto, bold: true })] })],
+    });
   const bodyCellBoldCentro = (texto: string) =>
     new DocxTableCell({
+      verticalAlign: VerticalAlign.CENTER,
       children: [
         new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: texto, bold: true })] }),
       ],
