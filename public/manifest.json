@@ -1,7 +1,7 @@
 {
-  "name": "Painel 23º CFO",
-  "short_name": "23º CFO",
-  "description": "Painel de desempenho dos alunos oficiais",
+  "name": "Painel CFO",
+  "short_name": "Painel CFO",
+  "description": "Painel de desempenho dos alunos oficiais da Academia de Polícia Militar Costa Verde",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1420",
