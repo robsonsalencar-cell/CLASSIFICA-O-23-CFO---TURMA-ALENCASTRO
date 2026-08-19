@@ -35,6 +35,7 @@ import {
   ReportKPIs,
   ReportSubjectProgress,
 } from "@/lib/exportReport";
+import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
 
 interface RankingTableProps {
   students: DetailedStudent[];
@@ -64,6 +65,7 @@ export const RankingTable = ({
   modo = "geral",
   podeExportar = true,
 }: RankingTableProps) => {
+  const { config } = useConfiguracaoTurma();
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -120,6 +122,7 @@ export const RankingTable = ({
       },
     },
     subjectProgress: subjectProgress ?? { gradedSubjects: 0, totalSubjects: 96 },
+    nomeTurma: config.nome_turma,
   });
 
   return (

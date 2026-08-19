@@ -286,6 +286,20 @@ export function useTurma() {
 }
 
 /**
+ * Rótulo dos 3 últimos colocados no ranking. Por instrução explícita do
+ * usuário (19/08/2026): a 23ª turma mantém o apelido tradicional
+ * "CARROCEIROS"; qualquer outra turma usa o rótulo neutro "3 Últimos
+ * Colocados", já que esse apelido é uma tradição específica da 23ª, não
+ * institucional. Identifica a turma pelo número extraído de nome_turma
+ * (ex: "23º CFO" → 23) — mesmo critério já usado na geração de matrícula
+ * didática (AdminUsersPanel.tsx).
+ */
+export function rotuloUltimosColocados(nomeTurma: string | null | undefined): string {
+  const numero = nomeTurma?.match(/\d+/)?.[0];
+  return numero === "23" ? "CARROCEIROS" : "3 Últimos Colocados";
+}
+
+/**
  * Compatibilidade com o código já existente que chama useConfiguracaoTurma()
  * esperando {config, loading, refetch, salvarTexto, enviarBrasao}. Por baixo,
  * agora opera sobre a TURMA EM FOCO (turmaAtual), não mais uma config única.

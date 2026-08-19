@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { DetailedStudent } from "@/hooks/useGoogleSheets";
+import { rotuloUltimosColocados } from "@/contexts/TurmaContext";
 
 export interface ReportKPIs {
   mediaTurma: number;
@@ -22,6 +23,7 @@ export interface ReportData {
   subjectProgress: ReportSubjectProgress;
   title?: string;
   subtitle?: string;
+  nomeTurma?: string; // usado só para decidir o rótulo dos 3 últimos (rotuloUltimosColocados)
 }
 
 const classify = (nota: number) =>
@@ -101,7 +103,7 @@ export const exportToPDF = (data: ReportData) => {
   // Bottom 3
   y = (doc as any).lastAutoTable.finalY + 25;
   doc.setFontSize(13);
-  doc.text("Carroceiros", 40, y);
+  doc.text(rotuloUltimosColocados(data.nomeTurma), 40, y);
   autoTable(doc, {
     startY: y + 8,
     head: [["Rank", "Nome", "Média Final"]],
@@ -202,7 +204,7 @@ export const exportToXLSX = (data: ReportData) => {
     ["Rank", "Nome", "Média Final"],
     ...top3.map((s) => [s.rank, s.nome, Number(s.mediaFinal.toFixed(4))]),
     [],
-    ["Carroceiros"],
+    [rotuloUltimosColocados(data.nomeTurma)],
     ["Rank", "Nome", "Média Final"],
     ...bottom3.map((s) => [s.rank, s.nome, Number(s.mediaFinal.toFixed(4))]),
   ];

@@ -13,7 +13,7 @@ import { DetailedStudent } from "@/hooks/useGoogleSheets";
 import { useAlunosModulo } from "@/hooks/useAlunosModulo";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma } from "@/contexts/TurmaContext";
+import { useConfiguracaoTurma, rotuloUltimosColocados } from "@/contexts/TurmaContext";
 import { useTemaModulo } from "@/hooks/useTemaModulo";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
 
@@ -213,7 +213,7 @@ const Cfo2 = () => {
             <div>
               <h2 className="text-xl font-semibold mb-4 text-foreground flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-danger animate-pulse" />
-                CARROCEIROS
+                {rotuloUltimosColocados(config.nome_turma)}
               </h2>
               <div className="space-y-3">
                 {bottomThree.map((student) => (

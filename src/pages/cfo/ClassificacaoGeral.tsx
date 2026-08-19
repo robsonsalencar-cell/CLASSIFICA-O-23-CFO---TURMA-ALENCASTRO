@@ -14,7 +14,7 @@ import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
 import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConfiguracaoTurma, useTurma } from "@/contexts/TurmaContext";
+import { useConfiguracaoTurma, useTurma, rotuloUltimosColocados } from "@/contexts/TurmaContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useTemaModulo } from "@/hooks/useTemaModulo";
 import { ResumoIndividualModulo } from "@/components/dashboard/ResumoIndividualModulo";
@@ -443,7 +443,7 @@ const ClassificacaoGeral = () => {
             <div>
               <h2 className="text-xl font-semibold mb-4 text-foreground flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-danger animate-pulse" />
-                CARROCEIROS
+                {rotuloUltimosColocados(config.nome_turma)}
               </h2>
               <div className="space-y-3">
                 {bottomThree.map((student) => (
