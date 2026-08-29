@@ -67,8 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function sendPasswordReset(email: string) {
+    // Domínio fixo, não window.location.origin — evita mandar o link de
+    // redefinição pro domínio antigo caso a pessoa esteja numa aba/favorito
+    // desatualizado (classifica-o-23-cfo-turma-alencastr.vercel.app), que
+    // pode não redirecionar corretamente pro domínio atual em todos os casos
+    // (URLs com #fragmento, como o link de redefinição, são especialmente
+    // sensíveis a isso).
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
+      redirectTo: "https://painel-cfo-apmcv.vercel.app/redefinir-senha",
     });
     return { error: error?.message ?? null };
   }
