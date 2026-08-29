@@ -132,12 +132,34 @@ export function AdminUsersPanel() {
 
   const anoInclusao = turmaAtual?.ano_letivo_cfo1 || String(new Date().getFullYear());
 
-  const previaMatriculas = alunosOrdenados.map((p, i) => ({
-    id: p.id,
-    nome: p.nome_completo,
-    matriculaAtual: p.matricula_academia,
-    matriculaNova: gerarMatriculaDidatica(anoInclusao, numeroTurma, i + 1),
-  }));
+  // Matrícula já atribuída NUNCA é recalculada/sobrescrita — mesmo que a
+  // turma perca gente por desligamento, ou a ordem alfabética mude por
+  // qualquer outro motivo, o número de quem já tem continua valendo pra
+  // sempre (já pode estar registrado em documento oficial, ex: "Registro
+  // nº" no Histórico Escolar). Só quem ainda não tem matrícula recebe um
+  // número novo, continuando a sequência depois do maior número já usado —
+  // ninguém que já tem número é renumerado.
+  // Além disso, com a turma marcada como encerrada (turmas.finalizada), o
+  // botão fica bloqueado por completo — ver disabled no AlertDialogTrigger.
+  const qtdJaNumerados = alunosOrdenados.filter((p) => p.matricula_academia).length;
+  let proximoSequencial = qtdJaNumerados;
+  const previaMatriculas = alunosOrdenados.map((p) => {
+    if (p.matricula_academia) {
+      return {
+        id: p.id,
+        nome: p.nome_completo,
+        matriculaAtual: p.matricula_academia,
+        matriculaNova: p.matricula_academia,
+      };
+    }
+    proximoSequencial++;
+    return {
+      id: p.id,
+      nome: p.nome_completo,
+      matriculaAtual: p.matricula_academia,
+      matriculaNova: gerarMatriculaDidatica(anoInclusao, numeroTurma, proximoSequencial),
+    };
+  });
 
   async function handleGerarMatriculas() {
     setGerandoMatriculas(true);
@@ -410,6 +432,12 @@ export function AdminUsersPanel() {
 
       <Card className="border-primary/30">
         <CardHeader>
+          {turmaAtual?.finalizada && (
+            <p className="text-xs text-muted-foreground mb-2">
+              🔒 Turma marcada como encerrada — geração automática de matrículas desativada pra
+              preservar os números já registrados em documentos oficiais.
+            </p>
+          )}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
@@ -417,7 +445,16 @@ export function AdminUsersPanel() {
             </CardTitle>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={alunosOrdenados.length === 0}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={alunosOrdenados.length === 0 || turmaAtual?.finalizada}
+                  title={
+                    turmaAtual?.finalizada
+                      ? "Turma marcada como encerrada — matrículas já atribuídas não são mais alteradas."
+                      : undefined
+                  }
+                >
                   <Hash className="w-4 h-4 mr-2" />
                   Gerar matrículas automaticamente
                 </Button>
@@ -429,8 +466,9 @@ export function AdminUsersPanel() {
                     <div className="space-y-3 text-sm">
                       <p>
                         Formato: <strong>ano.turma+sequencial.curso</strong> (ex: 2025.2311.1 = ano 2025, turma
-                        23, 11º aluno em ordem alfabética, curso CFO). Isso sobrescreve a matrícula atual de
-                        qualquer aluno que já tenha uma diferente da gerada.
+                        23, 11º aluno em ordem alfabética, curso CFO). Só gera matrícula para quem ainda
+                        não tem — quem já tem número atribuído nunca é sobrescrito, mesmo que a ordem
+                        alfabética mude ou alguém se desligue.
                       </p>
                       <div className="grid grid-cols-2 gap-x-3 items-center">
                         <Label className="text-xs">Ano de inclusão (APM)</Label>
