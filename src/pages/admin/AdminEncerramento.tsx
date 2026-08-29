@@ -22,7 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, UserMinus, FileSignature, Plus, Trash2 } from "lucide-react";
+import { Loader2, UserMinus, FileSignature, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface Desligamento {
@@ -73,7 +73,9 @@ export function AdminEncerramento() {
       supabase.from("profiles").select("id, nome_completo").eq("turma_id", turmaAtualId).order("nome_completo"),
       supabase
         .from("desligamentos")
-        .select("id, aluno_id, modulo, data_desligamento, numero_processo, motivo, profiles(nome_completo)")
+        .select(
+          "id, aluno_id, modulo, data_desligamento, numero_processo, motivo, profiles!desligamentos_aluno_id_fkey(nome_completo)"
+        )
         .eq("turma_id", turmaAtualId)
         .order("data_desligamento"),
       supabase
@@ -129,6 +131,7 @@ function DesligamentosCard({
 }) {
   const [aberto, setAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [alunoId, setAlunoId] = useState("");
   const [modulo, setModulo] = useState("");
   const [data, setData] = useState("");
@@ -136,11 +139,27 @@ function DesligamentosCard({
   const [motivo, setMotivo] = useState("");
 
   function resetar() {
+    setEditandoId(null);
     setAlunoId("");
     setModulo("");
     setData("");
     setProcesso("");
     setMotivo("");
+  }
+
+  function abrirParaEditar(d: Desligamento) {
+    setEditandoId(d.id);
+    setAlunoId(d.aluno_id);
+    setModulo(d.modulo);
+    setData(d.data_desligamento);
+    setProcesso(d.numero_processo ?? "");
+    setMotivo(d.motivo ?? "");
+    setAberto(true);
+  }
+
+  function abrirParaNovo() {
+    resetar();
+    setAberto(true);
   }
 
   async function handleSalvar() {
@@ -149,20 +168,26 @@ function DesligamentosCard({
       return;
     }
     setSalvando(true);
-    const { error } = await supabase.from("desligamentos").insert({
+
+    const payload = {
       aluno_id: alunoId,
       turma_id: turmaAtualId,
       modulo,
       data_desligamento: data,
       numero_processo: processo || null,
       motivo: motivo || null,
-    });
+    };
+
+    const { error } = editandoId
+      ? await supabase.from("desligamentos").update(payload).eq("id", editandoId)
+      : await supabase.from("desligamentos").insert(payload);
+
     setSalvando(false);
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Desligamento registrado" });
+    toast({ title: editandoId ? "Desligamento atualizado" : "Desligamento registrado" });
     resetar();
     setAberto(false);
     onChange();
@@ -177,7 +202,11 @@ function DesligamentosCard({
     onChange();
   }
 
-  const alunosDisponiveis = alunos.filter((a) => !desligamentos.some((d) => d.aluno_id === a.id));
+  // ao editar, o próprio aluno já desligado precisa continuar aparecendo
+  // na lista (senão o select fica sem valor selecionado)
+  const alunosDisponiveis = alunos.filter(
+    (a) => a.id === alunoId || !desligamentos.some((d) => d.aluno_id === a.id)
+  );
 
   return (
     <Card>
@@ -187,16 +216,22 @@ function DesligamentosCard({
             <UserMinus className="w-5 h-5 text-destructive" />
             Desligamentos ({desligamentos.length})
           </CardTitle>
-          <Dialog open={aberto} onOpenChange={setAberto}>
+          <Dialog
+            open={aberto}
+            onOpenChange={(v) => {
+              setAberto(v);
+              if (!v) resetar();
+            }}
+          >
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={abrirParaNovo}>
                 <Plus className="w-4 h-4 mr-2" />
                 Registrar desligamento
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Registrar desligamento de aluno</DialogTitle>
+                <DialogTitle>{editandoId ? "Editar desligamento" : "Registrar desligamento de aluno"}</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
                 <div className="space-y-1">
@@ -249,7 +284,7 @@ function DesligamentosCard({
               <DialogFooter>
                 <Button onClick={handleSalvar} disabled={salvando}>
                   {salvando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Salvar
+                  {editandoId ? "Salvar alterações" : "Salvar"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -280,6 +315,9 @@ function DesligamentosCard({
                   <TableCell>{new Date(d.data_desligamento + "T00:00:00").toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell>{d.numero_processo ?? "—"}</TableCell>
                   <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" onClick={() => abrirParaEditar(d)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleExcluir(d.id)}>
                       <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>
