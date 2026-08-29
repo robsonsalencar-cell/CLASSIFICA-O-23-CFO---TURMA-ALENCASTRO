@@ -27,7 +27,8 @@ import { toast } from "@/hooks/use-toast";
 
 interface Desligamento {
   id: string;
-  aluno_id: string;
+  aluno_id: string | null;
+  aluno_nome_manual: string | null;
   modulo: string;
   data_desligamento: string;
   numero_processo: string | null;
@@ -74,7 +75,7 @@ export function AdminEncerramento() {
       supabase
         .from("desligamentos")
         .select(
-          "id, aluno_id, modulo, data_desligamento, numero_processo, motivo, profiles!desligamentos_aluno_id_fkey(nome_completo)"
+          "id, aluno_id, aluno_nome_manual, modulo, data_desligamento, numero_processo, motivo, profiles!desligamentos_aluno_id_fkey(nome_completo)"
         )
         .eq("turma_id", turmaAtualId)
         .order("data_desligamento"),
@@ -87,7 +88,7 @@ export function AdminEncerramento() {
 
     setAlunos(perfis ?? []);
     setDesligamentos(
-      (desl ?? []).map((d: any) => ({ ...d, aluno_nome: d.profiles?.nome_completo }))
+      (desl ?? []).map((d: any) => ({ ...d, aluno_nome: d.profiles?.nome_completo ?? d.aluno_nome_manual }))
     );
     setComissoes(
       (coms ?? []).map((c: any) => ({
@@ -133,14 +134,18 @@ function DesligamentosCard({
   const [salvando, setSalvando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [alunoId, setAlunoId] = useState("");
+  const [alunoNomeManual, setAlunoNomeManual] = useState("");
   const [modulo, setModulo] = useState("");
   const [data, setData] = useState("");
   const [processo, setProcesso] = useState("");
   const [motivo, setMotivo] = useState("");
 
+  const SEM_CONTA = "__sem_conta__";
+
   function resetar() {
     setEditandoId(null);
     setAlunoId("");
+    setAlunoNomeManual("");
     setModulo("");
     setData("");
     setProcesso("");
@@ -149,7 +154,8 @@ function DesligamentosCard({
 
   function abrirParaEditar(d: Desligamento) {
     setEditandoId(d.id);
-    setAlunoId(d.aluno_id);
+    setAlunoId(d.aluno_id ?? SEM_CONTA);
+    setAlunoNomeManual(d.aluno_nome_manual ?? "");
     setModulo(d.modulo);
     setData(d.data_desligamento);
     setProcesso(d.numero_processo ?? "");
@@ -163,14 +169,16 @@ function DesligamentosCard({
   }
 
   async function handleSalvar() {
-    if (!turmaAtualId || !alunoId || !modulo || !data) {
-      toast({ title: "Preencha aluno, módulo e data", variant: "destructive" });
+    const semConta = alunoId === SEM_CONTA;
+    if (!turmaAtualId || !alunoId || !modulo || !data || (semConta && !alunoNomeManual.trim())) {
+      toast({ title: "Preencha aluno (ou nome manual), módulo e data", variant: "destructive" });
       return;
     }
     setSalvando(true);
 
     const payload = {
-      aluno_id: alunoId,
+      aluno_id: semConta ? null : alunoId,
+      aluno_nome_manual: semConta ? alunoNomeManual.trim() : null,
       turma_id: turmaAtualId,
       modulo,
       data_desligamento: data,
@@ -246,9 +254,24 @@ function DesligamentosCard({
                           {a.nome_completo}
                         </SelectItem>
                       ))}
+                      <SelectItem value={SEM_CONTA}>— Aluno sem conta no sistema (digitar nome) —</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                {alunoId === SEM_CONTA && (
+                  <div className="space-y-1">
+                    <Label>Nome completo do aluno</Label>
+                    <Input
+                      value={alunoNomeManual}
+                      onChange={(e) => setAlunoNomeManual(e.target.value)}
+                      placeholder="ex: Lavínia Diniz Siqueira"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Use quando o aluno se desligou antes de ter conta criada no app (comum logo no
+                      início do curso).
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-1">
                   <Label>Módulo em curso no momento do desligamento</Label>
                   <Select value={modulo} onValueChange={setModulo}>
