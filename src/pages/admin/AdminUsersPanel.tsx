@@ -194,7 +194,7 @@ export function AdminUsersPanel() {
 
     for (const item of previaEmailsPendentes) {
       const { data, error } = await supabase.functions.invoke("admin-update-user", {
-        body: { user_id: item.id, email: item.emailNovo },
+        body: { user_id: item.id, email: item.emailNovo, nova_senha: "12345678" },
       });
       if (error || (data as any)?.error) {
         falhas.push({ nome: item.nome, erro: await extrairMensagemErroEdgeFunction(error, data) });
@@ -492,9 +492,14 @@ export function AdminUsersPanel() {
                     <div className="space-y-3 text-sm">
                       <p>
                         Isso troca o e-mail de acesso (login) de cada aluno pro e-mail pessoal
-                        informado na planilha da 23ª turma — não é só um dado de contato. Depois
-                        dessa mudança, o aluno precisa usar o e-mail novo pra entrar (a senha não
-                        muda).
+                        informado na planilha da 23ª turma — não é só um dado de contato. Também
+                        redefine a senha de todos pra <strong>12345678</strong> (senha inicial
+                        padrão, pra primeiro login). Depois dessa mudança, o aluno precisa usar o
+                        e-mail novo e essa senha pra entrar.
+                      </p>
+                      <p className="text-destructive font-medium">
+                        Esta é a última vez que este botão deve ser usado — depois de confirmar,
+                        ele será removido do painel.
                       </p>
                       <div className="max-h-64 overflow-y-auto border rounded-md">
                         <Table>
