@@ -111,6 +111,26 @@ export function AdminUsersPanel() {
     carregarDesligamentosManuais();
   }, [turmaAtualId]);
 
+  // Fim da janela de ingresso = data da reunião da Ata de Encerramento do 1º
+  // Ano, cadastrada em Encerramento → Comissões. Escolhido em vez de um campo
+  // manual porque é difícil de prever/preencher com antecedência — é mais
+  // natural derivar dessa ata, que já vai ser registrada de qualquer forma
+  // quando o 1º Ano acabar. Enquanto essa ata não existir, a janela continua
+  // aberta (sem prazo).
+  const [dataFimCfo1, setDataFimCfo1] = useState<string | null>(null);
+  useEffect(() => {
+    if (!turmaAtualId) return;
+    supabase
+      .from("comissoes_encerramento")
+      .select("data_reuniao")
+      .eq("turma_id", turmaAtualId)
+      .or("referente_a.ilike.%1º ano%,referente_a.ilike.%1o ano%,referente_a.ilike.%primeiro ano%")
+      .not("data_reuniao", "is", null)
+      .order("data_reuniao", { ascending: true })
+      .limit(1)
+      .then(({ data }) => setDataFimCfo1(data?.[0]?.data_reuniao ?? null));
+  }, [turmaAtualId]);
+
   const alunosOrdenados = profiles
     .filter((p) => p.role === "aluno")
     .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
@@ -131,11 +151,10 @@ export function AdminUsersPanel() {
   // da ordem alfabética, então o botão recalcula a sequência inteira — é
   // seguro fazer isso ainda nessa fase porque nenhum documento oficial
   // referenciando essas matrículas foi emitido ainda. Assim que a janela
-  // fecha (ou se a data nunca foi configurada), volta ao modo de só
-  // preencher lacunas, sem nunca mais renumerar quem já tem matrícula.
-  const janelaIngressoAberta = Boolean(
-    turmaAtual?.data_limite_ingresso && new Date().toISOString().slice(0, 10) <= turmaAtual.data_limite_ingresso
-  );
+  // fecha (Ata de Encerramento do 1º Ano registrada e a data já passou),
+  // volta ao modo de só preencher lacunas, sem nunca mais renumerar quem já
+  // tem matrícula.
+  const janelaIngressoAberta = Boolean(!dataFimCfo1 || new Date().toISOString().slice(0, 10) <= dataFimCfo1);
 
   const itensCombinados = [
     ...alunosOrdenados.map((p) => ({
@@ -461,10 +480,11 @@ export function AdminUsersPanel() {
                         23, 11º aluno em ordem alfabética, curso CFO).{" "}
                         {janelaIngressoAberta ? (
                           <>
-                            <strong>Janela de ingresso aberta</strong> (até{" "}
-                            {turmaAtual?.data_limite_ingresso &&
-                              new Date(turmaAtual.data_limite_ingresso + "T00:00:00").toLocaleDateString("pt-BR")}
-                            ): recalcula a sequência inteira em ordem alfabética — quem já tinha número pode
+                            <strong>Janela de ingresso aberta</strong>
+                            {dataFimCfo1
+                              ? ` (até ${new Date(dataFimCfo1 + "T00:00:00").toLocaleDateString("pt-BR")}, data da Ata de Encerramento do 1º Ano)`
+                              : " (sem prazo definido ainda — registre a Ata de Encerramento do 1º Ano em Encerramento → Comissões quando o 1º Ano acabar)"}
+                            : recalcula a sequência inteira em ordem alfabética — quem já tinha número pode
                             mudar, se alguém novo entrar no meio (ex: por decisão judicial).
                           </>
                         ) : (

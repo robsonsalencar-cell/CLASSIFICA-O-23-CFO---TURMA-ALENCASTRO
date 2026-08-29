@@ -23,7 +23,6 @@ export function AdminPersonalizacao() {
     autorizarAdminInstitucional,
     transferirAdminInstitucional,
     atualizarDataInicioAulas,
-    atualizarDataLimiteIngresso,
   } = useTurma();
   const { isAdminInstitucional, isDeveloper } = useAuth();
 
@@ -177,24 +176,6 @@ export function AdminPersonalizacao() {
       toast({ title: "Erro ao salvar data de início", description: error, variant: "destructive" });
     } else {
       toast({ title: "Data de início das aulas salva" });
-    }
-  }
-
-  const [dataLimiteIngresso, setDataLimiteIngresso] = useState(config.data_limite_ingresso ?? "");
-  const [salvandoDataLimite, setSalvandoDataLimite] = useState(false);
-  useEffect(() => {
-    setDataLimiteIngresso(config.data_limite_ingresso ?? "");
-  }, [config.data_limite_ingresso]);
-
-  async function handleSalvarDataLimiteIngresso() {
-    if (!turmaAtualId) return;
-    setSalvandoDataLimite(true);
-    const { error } = await atualizarDataLimiteIngresso(turmaAtualId, dataLimiteIngresso || null);
-    setSalvandoDataLimite(false);
-    if (error) {
-      toast({ title: "Erro ao salvar prazo de ingresso", description: error, variant: "destructive" });
-    } else {
-      toast({ title: "Prazo legal de ingresso salvo" });
     }
   }
 
@@ -513,6 +494,9 @@ export function AdminPersonalizacao() {
                 A geração automática de matrícula didática (painel Usuários) só fica liberada a
                 partir desta data — orientação da administração da APMCV, pra evitar renumerar
                 todo mundo se a lista de matriculados ainda mudar antes do primeiro dia de aula.
+                A reordenação por ordem alfabética (pra encaixar um ingresso tardio, ex: por
+                decisão judicial) fica disponível até a Ata de Encerramento do 1º Ano ser
+                registrada em Encerramento → Comissões — depois disso, trava definitivamente.
               </p>
               <div className="flex items-center gap-2">
                 <Input
@@ -523,28 +507,6 @@ export function AdminPersonalizacao() {
                 />
                 <Button size="sm" onClick={handleSalvarDataInicioAulas} disabled={salvandoDataInicio}>
                   {salvandoDataInicio && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Salvar
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-1 rounded-md border border-border p-3">
-              <Label className="text-sm font-medium">Prazo legal de ingresso (fim da janela de reordenação)</Label>
-              <p className="text-xs text-muted-foreground mb-2">
-                Até essa data, "Gerar matrículas automaticamente" recalcula a sequência inteira em
-                ordem alfabética (permite um candidato entrar no meio, ex: por decisão judicial,
-                dentro do limite legal de 25% de uma matéria). Depois dessa data, volta a travar —
-                nenhuma matrícula já atribuída é mais alterada. Deixe em branco pra manter travado
-                assim que as aulas começarem.
-              </p>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  className="max-w-[200px]"
-                  value={dataLimiteIngresso}
-                  onChange={(e) => setDataLimiteIngresso(e.target.value)}
-                />
-                <Button size="sm" onClick={handleSalvarDataLimiteIngresso} disabled={salvandoDataLimite}>
-                  {salvandoDataLimite && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Salvar
                 </Button>
               </div>
