@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminUsersPanel } from "./AdminUsersPanel";
 import { AdminGradesEditor } from "./AdminGradesEditor";
 import { AdminPersonalizacao } from "./AdminPersonalizacao";
+import { AdminEncerramento } from "./AdminEncerramento";
 import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
 import { MATERIAS_CFO3 } from "@/config/materiasCfo3";
@@ -22,6 +23,7 @@ export default function Admin() {
           <TabsTrigger value="cfo1">Notas CFO I</TabsTrigger>
           <TabsTrigger value="cfo2">Notas CFO II</TabsTrigger>
           <TabsTrigger value="cfo3">Notas CFO III</TabsTrigger>
+          <TabsTrigger value="encerramento">Encerramento</TabsTrigger>
           <TabsTrigger value="personalizacao">Personalização</TabsTrigger>
         </TabsList>
 
@@ -36,6 +38,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="cfo3" className="mt-6">
           <AdminGradesEditor tabela="notas_cfo3" tituloModulo="CFO III" listaMaterias={MATERIAS_CFO3} />
+        </TabsContent>
+        <TabsContent value="encerramento" className="mt-6">
+          <AdminEncerramento />
         </TabsContent>
         <TabsContent value="personalizacao" className="mt-6">
           <AdminPersonalizacao />
