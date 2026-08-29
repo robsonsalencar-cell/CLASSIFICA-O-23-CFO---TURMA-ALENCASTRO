@@ -85,20 +85,30 @@ export function AdminUsersPanel() {
     setNumeroTurma(m ? m[0] : "");
   }, [turmaAtual?.id]);
 
-  // Quantidade de alunos SEM conta no sistema (cadastrados em Desligamentos
-  // com aluno_nome_manual) que já têm matrícula didática atribuída — conta
-  // pra reservar o lugar deles na sequência, senão o gerador poderia
-  // reutilizar por engano um número já dado a alguém como a Lavínia
-  // (registrada em Desligamentos, não em profiles).
-  const [qtdMatriculasManuais, setQtdMatriculasManuais] = useState(0);
-  useEffect(() => {
+  // Alunos SEM conta no sistema (registrados em Desligamentos com
+  // aluno_nome_manual, ex: a Lavínia) também entram na ordem alfabética da
+  // matrícula didática — eles contam pro total de matriculados mesmo sem
+  // nunca terem tido acesso ao app.
+  const [desligamentosManuais, setDesligamentosManuais] = useState<
+    { id: string; nome: string; matricula: string | null }[]
+  >([]);
+  async function carregarDesligamentosManuais() {
     if (!turmaAtualId) return;
-    supabase
+    const { data } = await supabase
       .from("desligamentos")
-      .select("id", { count: "exact", head: true })
+      .select("id, aluno_nome_manual, matricula_academia_manual")
       .eq("turma_id", turmaAtualId)
-      .not("matricula_academia_manual", "is", null)
-      .then(({ count }) => setQtdMatriculasManuais(count ?? 0));
+      .is("aluno_id", null);
+    setDesligamentosManuais(
+      (data ?? []).map((d: any) => ({
+        id: d.id,
+        nome: d.aluno_nome_manual ?? "(sem nome)",
+        matricula: d.matricula_academia_manual,
+      }))
+    );
+  }
+  useEffect(() => {
+    carregarDesligamentosManuais();
   }, [turmaAtualId]);
 
   const alunosOrdenados = profiles
@@ -115,36 +125,52 @@ export function AdminUsersPanel() {
     turmaAtual?.data_inicio_aulas && turmaAtual.data_inicio_aulas <= new Date().toISOString().slice(0, 10)
   );
 
-  // Matrícula já atribuída NUNCA é recalculada/sobrescrita — mesmo que a
-  // turma perca gente por desligamento, ou a ordem alfabética mude por
-  // qualquer outro motivo, o número de quem já tem continua valendo pra
-  // sempre (já pode estar registrado em documento oficial, ex: "Registro
-  // nº" no Histórico Escolar). Só quem ainda não tem matrícula recebe um
-  // número novo, continuando a sequência depois do maior número já usado —
-  // ninguém que já tem número é renumerado. A contagem inicial também
-  // reserva o(s) número(s) já usados por gente sem conta no sistema (ver
-  // qtdMatriculasManuais acima).
-  // Além disso, com a turma marcada como encerrada (turmas.finalizada), o
-  // botão fica bloqueado por completo — ver disabled no AlertDialogTrigger.
-  const qtdJaNumerados = alunosOrdenados.filter((p) => p.matricula_academia).length + qtdMatriculasManuais;
-  let proximoSequencial = qtdJaNumerados;
-  const previaMatriculas = alunosOrdenados.map((p) => {
-    if (p.matricula_academia) {
-      return {
-        id: p.id,
-        nome: p.nome_completo,
-        matriculaAtual: p.matricula_academia,
-        matriculaNova: p.matricula_academia,
-      };
-    }
-    proximoSequencial++;
-    return {
+  // Janela legal de ingresso (até 25% de uma matéria, por lei — ex: caso do
+  // Juliano Jacinto Caminha, incluído por decisão judicial já com as aulas
+  // em andamento). Enquanto aberta, um novo candidato pode entrar no MEIO
+  // da ordem alfabética, então o botão recalcula a sequência inteira — é
+  // seguro fazer isso ainda nessa fase porque nenhum documento oficial
+  // referenciando essas matrículas foi emitido ainda. Assim que a janela
+  // fecha (ou se a data nunca foi configurada), volta ao modo de só
+  // preencher lacunas, sem nunca mais renumerar quem já tem matrícula.
+  const janelaIngressoAberta = Boolean(
+    turmaAtual?.data_limite_ingresso && new Date().toISOString().slice(0, 10) <= turmaAtual.data_limite_ingresso
+  );
+
+  const itensCombinados = [
+    ...alunosOrdenados.map((p) => ({
+      tipo: "perfil" as const,
       id: p.id,
       nome: p.nome_completo,
       matriculaAtual: p.matricula_academia,
-      matriculaNova: gerarMatriculaDidatica(anoInclusao, numeroTurma, proximoSequencial),
-    };
-  });
+    })),
+    ...desligamentosManuais.map((d) => ({
+      tipo: "manual" as const,
+      id: d.id,
+      nome: d.nome,
+      matriculaAtual: d.matricula,
+    })),
+  ].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+  const previaMatriculas = janelaIngressoAberta
+    ? // Fase 1 — janela de ingresso aberta: recalcula a sequência INTEIRA em
+      // ordem alfabética, permitindo um candidato novo entrar no meio e
+      // empurrar quem vem depois — mesmo quem já tinha número.
+      itensCombinados.map((item, i) => ({
+        ...item,
+        matriculaNova: gerarMatriculaDidatica(anoInclusao, numeroTurma, i + 1),
+      }))
+    : // Fase 2 — janela fechada (ou nunca configurada): só preenche lacunas,
+      // nunca renumera quem já tem matrícula (pode estar em documento
+      // oficial, ex: "Registro nº" no Histórico Escolar).
+      (() => {
+        let proximoSequencial = itensCombinados.filter((i) => i.matriculaAtual).length;
+        return itensCombinados.map((item) => {
+          if (item.matriculaAtual) return { ...item, matriculaNova: item.matriculaAtual };
+          proximoSequencial++;
+          return { ...item, matriculaNova: gerarMatriculaDidatica(anoInclusao, numeroTurma, proximoSequencial) };
+        });
+      })();
 
   async function handleGerarMatriculas() {
     setGerandoMatriculas(true);
@@ -156,13 +182,25 @@ export function AdminUsersPanel() {
         sucesso++;
         continue;
       }
-      const { data, error } = await supabase.functions.invoke("admin-update-user", {
-        body: { user_id: item.id, matricula_academia: item.matriculaNova },
-      });
-      if (error || (data as any)?.error) {
-        falhas.push({ nome: item.nome, erro: await extrairMensagemErroEdgeFunction(error, data) });
+      if (item.tipo === "perfil") {
+        const { data, error } = await supabase.functions.invoke("admin-update-user", {
+          body: { user_id: item.id, matricula_academia: item.matriculaNova },
+        });
+        if (error || (data as any)?.error) {
+          falhas.push({ nome: item.nome, erro: await extrairMensagemErroEdgeFunction(error, data) });
+        } else {
+          sucesso++;
+        }
       } else {
-        sucesso++;
+        const { error } = await supabase
+          .from("desligamentos")
+          .update({ matricula_academia_manual: item.matriculaNova })
+          .eq("id", item.id);
+        if (error) {
+          falhas.push({ nome: item.nome, erro: error.message });
+        } else {
+          sucesso++;
+        }
       }
     }
 
@@ -176,6 +214,7 @@ export function AdminUsersPanel() {
       variant: falhas.length > 0 ? "destructive" : undefined,
     });
     carregarPerfis();
+    carregarDesligamentosManuais();
   }
 
   async function carregarPerfis() {
@@ -399,7 +438,7 @@ export function AdminUsersPanel() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={alunosOrdenados.length === 0 || turmaAtual?.finalizada || !aulasJaComecaram}
+                  disabled={itensCombinados.length === 0 || turmaAtual?.finalizada || !aulasJaComecaram}
                   title={
                     turmaAtual?.finalizada
                       ? "Turma marcada como encerrada — matrículas já atribuídas não são mais alteradas."
@@ -414,14 +453,26 @@ export function AdminUsersPanel() {
               </AlertDialogTrigger>
               <AlertDialogContent className="max-w-2xl">
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Gerar matrículas didáticas para {alunosOrdenados.length} aluno(s)?</AlertDialogTitle>
+                  <AlertDialogTitle>Gerar matrículas didáticas para {itensCombinados.length} aluno(s)?</AlertDialogTitle>
                   <AlertDialogDescription asChild>
                     <div className="space-y-3 text-sm">
                       <p>
                         Formato: <strong>ano.turma+sequencial.curso</strong> (ex: 2025.2311.1 = ano 2025, turma
-                        23, 11º aluno em ordem alfabética, curso CFO). Só gera matrícula para quem ainda
-                        não tem — quem já tem número atribuído nunca é sobrescrito, mesmo que a ordem
-                        alfabética mude ou alguém se desligue.
+                        23, 11º aluno em ordem alfabética, curso CFO).{" "}
+                        {janelaIngressoAberta ? (
+                          <>
+                            <strong>Janela de ingresso aberta</strong> (até{" "}
+                            {turmaAtual?.data_limite_ingresso &&
+                              new Date(turmaAtual.data_limite_ingresso + "T00:00:00").toLocaleDateString("pt-BR")}
+                            ): recalcula a sequência inteira em ordem alfabética — quem já tinha número pode
+                            mudar, se alguém novo entrar no meio (ex: por decisão judicial).
+                          </>
+                        ) : (
+                          <>
+                            Janela de ingresso fechada: só gera matrícula para quem ainda não tem — quem já
+                            tem número atribuído nunca é sobrescrito.
+                          </>
+                        )}
                       </p>
                       <div className="grid grid-cols-2 gap-x-3 items-center">
                         <Label className="text-xs">Ano de inclusão (APM)</Label>
@@ -444,8 +495,13 @@ export function AdminUsersPanel() {
                           </TableHeader>
                           <TableBody>
                             {previaMatriculas.map((item) => (
-                              <TableRow key={item.id}>
-                                <TableCell className="text-xs">{item.nome}</TableCell>
+                              <TableRow key={`${item.tipo}-${item.id}`}>
+                                <TableCell className="text-xs">
+                                  {item.nome}
+                                  {item.tipo === "manual" && (
+                                    <span className="text-muted-foreground"> (sem conta no sistema)</span>
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-xs text-muted-foreground">
                                   {item.matriculaAtual ?? "—"}
                                 </TableCell>
