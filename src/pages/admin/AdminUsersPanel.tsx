@@ -107,6 +107,14 @@ export function AdminUsersPanel() {
 
   const anoInclusao = turmaAtual?.ano_letivo_cfo1 || String(new Date().getFullYear());
 
+  // Orientação da administração da APMCV (29/08/2026): só gerar matrícula
+  // didática depois que as aulas realmente começam — evita ter que
+  // renumerar todo mundo se a lista de matriculados ainda mudar antes do
+  // primeiro dia de aula (foi exatamente o que aconteceu com a Lavínia).
+  const aulasJaComecaram = Boolean(
+    turmaAtual?.data_inicio_aulas && turmaAtual.data_inicio_aulas <= new Date().toISOString().slice(0, 10)
+  );
+
   // Matrícula já atribuída NUNCA é recalculada/sobrescrita — mesmo que a
   // turma perca gente por desligamento, ou a ordem alfabética mude por
   // qualquer outro motivo, o número de quem já tem continua valendo pra
@@ -371,6 +379,16 @@ export function AdminUsersPanel() {
               preservar os números já registrados em documentos oficiais.
             </p>
           )}
+          {!turmaAtual?.finalizada && !aulasJaComecaram && (
+            <p className="text-xs text-muted-foreground mb-2">
+              🔒 Geração automática de matrícula travada até o início das aulas
+              {turmaAtual?.data_inicio_aulas
+                ? ` (${new Date(turmaAtual.data_inicio_aulas + "T00:00:00").toLocaleDateString("pt-BR")})`
+                : " — configure a data em Personalização"}
+              . Orientação da administração da APMCV: evita renumerar todo mundo se a lista de
+              matriculados ainda mudar antes do primeiro dia de aula.
+            </p>
+          )}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
@@ -381,10 +399,12 @@ export function AdminUsersPanel() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={alunosOrdenados.length === 0 || turmaAtual?.finalizada}
+                  disabled={alunosOrdenados.length === 0 || turmaAtual?.finalizada || !aulasJaComecaram}
                   title={
                     turmaAtual?.finalizada
                       ? "Turma marcada como encerrada — matrículas já atribuídas não são mais alteradas."
+                      : !aulasJaComecaram
+                      ? "Travado até o início das aulas (configurável em Personalização)."
                       : undefined
                   }
                 >

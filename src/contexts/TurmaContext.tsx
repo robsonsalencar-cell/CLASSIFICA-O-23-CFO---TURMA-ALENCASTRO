@@ -22,6 +22,7 @@ export interface Turma {
   proximo_numero_registro_historico: number;
   finalizada: boolean;
   autorizacao_institucional: boolean;
+  data_inicio_aulas: string | null;
   created_at: string;
 }
 
@@ -64,6 +65,7 @@ interface TurmaContextValue {
   finalizarTurma: (id: string, valor: boolean) => Promise<{ error: string | null }>;
   autorizarAdminInstitucional: (id: string, valor: boolean) => Promise<{ error: string | null }>;
   transferirAdminInstitucional: (novoAdminId: string) => Promise<{ error: string | null }>;
+  atualizarDataInicioAulas: (id: string, data: string | null) => Promise<{ error: string | null }>;
 }
 
 const TURMA_PADRAO: Turma = {
@@ -86,6 +88,7 @@ const TURMA_PADRAO: Turma = {
   proximo_numero_registro_historico: 1,
   finalizada: false,
   autorizacao_institucional: false,
+  data_inicio_aulas: null,
   created_at: new Date().toISOString(),
 };
 
@@ -252,6 +255,12 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  async function atualizarDataInicioAulas(id: string, data: string | null) {
+    const { error } = await supabase.from("turmas").update({ data_inicio_aulas: data }).eq("id", id);
+    if (!error) await carregar();
+    return { error: error?.message ?? null };
+  }
+
   return (
     <TurmaContext.Provider
       value={{
@@ -272,6 +281,7 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
         finalizarTurma,
         autorizarAdminInstitucional,
         transferirAdminInstitucional,
+        atualizarDataInicioAulas,
       }}
     >
       {children}

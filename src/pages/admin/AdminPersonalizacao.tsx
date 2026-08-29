@@ -22,6 +22,7 @@ export function AdminPersonalizacao() {
     finalizarTurma,
     autorizarAdminInstitucional,
     transferirAdminInstitucional,
+    atualizarDataInicioAulas,
   } = useTurma();
   const { isAdminInstitucional, isDeveloper } = useAuth();
 
@@ -157,6 +158,24 @@ export function AdminPersonalizacao() {
       toast({ title: "Erro ao mudar status da turma", description: error, variant: "destructive" });
     } else {
       toast({ title: valor ? "Turma marcada como finalizada" : "Turma reaberta" });
+    }
+  }
+
+  const [dataInicioAulas, setDataInicioAulas] = useState(config.data_inicio_aulas ?? "");
+  const [salvandoDataInicio, setSalvandoDataInicio] = useState(false);
+  useEffect(() => {
+    setDataInicioAulas(config.data_inicio_aulas ?? "");
+  }, [config.data_inicio_aulas]);
+
+  async function handleSalvarDataInicioAulas() {
+    if (!turmaAtualId) return;
+    setSalvandoDataInicio(true);
+    const { error } = await atualizarDataInicioAulas(turmaAtualId, dataInicioAulas || null);
+    setSalvandoDataInicio(false);
+    if (error) {
+      toast({ title: "Erro ao salvar data de início", description: error, variant: "destructive" });
+    } else {
+      toast({ title: "Data de início das aulas salva" });
     }
   }
 
@@ -469,6 +488,26 @@ export function AdminPersonalizacao() {
               Turma finalizada fica travada — ninguém edita notas, perfis ou dados dela, exceto
               o desenvolvedor (ou quem ele autorizar pontualmente aqui embaixo).
             </p>
+            <div className="space-y-1 rounded-md border border-border p-3">
+              <Label className="text-sm font-medium">Data de início das aulas</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                A geração automática de matrícula didática (painel Usuários) só fica liberada a
+                partir desta data — orientação da administração da APMCV, pra evitar renumerar
+                todo mundo se a lista de matriculados ainda mudar antes do primeiro dia de aula.
+              </p>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  className="max-w-[200px]"
+                  value={dataInicioAulas}
+                  onChange={(e) => setDataInicioAulas(e.target.value)}
+                />
+                <Button size="sm" onClick={handleSalvarDataInicioAulas} disabled={salvandoDataInicio}>
+                  {salvandoDataInicio && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Salvar
+                </Button>
+              </div>
+            </div>
             <div className="flex items-center justify-between rounded-md border border-border p-3">
               <span className="text-sm font-medium">
                 Status: {config.finalizada ? "Finalizada (travada)" : "Em andamento"}
