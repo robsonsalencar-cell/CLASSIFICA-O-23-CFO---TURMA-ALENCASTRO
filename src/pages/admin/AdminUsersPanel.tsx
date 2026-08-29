@@ -40,47 +40,6 @@ function gerarMatriculaDidatica(ano: string, numeroTurma: string, sequencial: nu
   return `${anoStr}.${turmaStr}${seqStr}.${CODIGO_CURSO}`;
 }
 
-/**
- * E-mails pessoais dos cadetes da 23ª turma, extraídos da planilha de
- * coleta enviada pelo usuário em 19/08/2026. Os e-mails institucionais
- * cadastrados anteriormente eram fictícios/gerados automaticamente — o
- * usuário confirmou explicitamente a troca pra estes, que passam a ser o
- * e-mail de LOGIN de cada aluno (não é só um dado de contato).
- *
- * Isso é um dado de importação pontual (não deve ser reaproveitado em
- * turmas futuras) — cada nova turma precisará de sua própria lista.
- */
-const EMAILS_PLANILHA_23CFO: { nome: string; email: string }[] = [
-  { nome: "ALINE APARECIDA ROSA", email: "alinerosa.adv@gmail.com" },
-  { nome: "ANDRE BARONI OLIVEIRA", email: "andreb_ci@hotmail.com" },
-  { nome: "BRUNA LAÍS EVANGELISTA DA SILVA RIBEIRO", email: "brunaribeiro67@gmail.com" },
-  { nome: "CAISSON GRAZIANNI ALBUQUERQUE GUIMARÃES", email: "caisson.guimaraescfo@gmail.com" },
-  { nome: "DELVI PÉRICLES SOUZA GOMES JÚNIOR", email: "djunior.no.vin158@gmail.com" },
-  { nome: "DIEGO CESAR BARBOSA ARAUJO", email: "01cbcesar@gmail.com" },
-  { nome: "EDSON GARCIA MOREIRA DA SILVA", email: "garciasikii@gmail.com" },
-  { nome: "EDUARDO ROBERTO LOPES FILHO", email: "edu_rlopes@hotmail.com" },
-  { nome: "FELLIPE RAFAEL SANTOS DE SOUZA", email: "rafaelfellipe261@gmail.com" },
-  { nome: "GERNAIAN RODRIGUES DA SILVA", email: "gernaiansilva@pm.mt.gov.br" },
-  { nome: "GIDEONI PEREIRA DA SILVA", email: "contatogideoni@gmail.com" },
-  { nome: "GRACIELLE DE SIQUEIRA CARVALHO", email: "graciellesiqueira@hotmail.com" },
-  { nome: "JAMILE ROBER DOS SANTOS FLEURY FERREIRA", email: "jamilefleury32@gmail.com" },
-  { nome: "JHONATHAN ANTUNES PAULUK", email: "jhonathansnp@hotmail.com" },
-  { nome: "JOILSON SANTOS DE MORAES", email: "joilsoncamos@gmail.com" },
-  { nome: "JULIANO DO VAL PETRY FREITAS", email: "julianofreitas@pm.mt.gov.br" },
-  { nome: "JULIANO JACINTO CAMINHA", email: "juliano_jcamin@outlook.com" },
-  { nome: "LAURIANE SIMONINI", email: "lauri_simonini@hotmail.com" },
-  { nome: "LUCAS CARVALHO SILVA", email: "lucascs96.lc@gmail.com" },
-  { nome: "LUIZ HENRIQUE ACKERMANN", email: "ackermannluizhenrique@gmail.com" },
-  { nome: "MOYSES FERREIRA DE CARVALHO", email: "moysesdecarvalho@hotmail.com" },
-  { nome: "ODEZIO BORGE DE CARVALHO", email: "odezioborges1128@hotmail.com" },
-  { nome: "PETRUS ANDREY GUIMARAES GARCIA", email: "petrusggarcia@gmail.com" },
-  { nome: "PUBLIO FERREIRA MORENO", email: "publio.moreno@hotmail.com" },
-  { nome: "RAPHAEL ROCHA XAVIER", email: "raphaelxavierrocha@gmail.com" },
-  { nome: "ROBSON DOS SANTOS ALENCAR", email: "ROBSONSALENCAR@GMAIL.COM" },
-  { nome: "VINICIUS ANTÔNIO OLIVEIRA DA SILVA", email: "vinicius.antonio95@hotmail.com" },
-  { nome: "WENDER DA SILVA FIGUEIREDO", email: "wenderfigueiredo.pmmt@gmail.com" },
-];
-
 interface EdicaoState {
   nome_completo: string;
   email: string;
@@ -202,50 +161,6 @@ export function AdminUsersPanel() {
     setGerandoMatriculas(false);
     toast({
       title: `Matrículas geradas: ${sucesso} de ${previaMatriculas.length}`,
-      description:
-        falhas.length > 0
-          ? `Falhas: ${falhas.map((f) => `${f.nome} (${f.erro})`).join("; ")}`
-          : undefined,
-      variant: falhas.length > 0 ? "destructive" : undefined,
-    });
-    carregarPerfis();
-  }
-
-  // atualização em lote de e-mails de login (planilha da 23ª turma)
-  const [atualizandoEmails, setAtualizandoEmails] = useState(false);
-  const previaEmails = EMAILS_PLANILHA_23CFO.map((item) => {
-    const perfil = profiles.find((p) => p.nome_completo.toUpperCase() === item.nome.toUpperCase());
-    return {
-      id: perfil?.id ?? null,
-      nome: item.nome,
-      emailAtual: perfil?.email ?? null,
-      emailNovo: item.email,
-      encontrado: Boolean(perfil),
-      jaEsta: perfil?.email?.toLowerCase() === item.email.toLowerCase(),
-    };
-  });
-  const previaEmailsPendentes = previaEmails.filter((i) => i.encontrado && !i.jaEsta);
-  const previaEmailsNaoEncontrados = previaEmails.filter((i) => !i.encontrado);
-
-  async function handleAtualizarEmails() {
-    setAtualizandoEmails(true);
-    let sucesso = 0;
-    const falhas: { nome: string; erro: string }[] = [];
-
-    for (const item of previaEmailsPendentes) {
-      const { data, error } = await supabase.functions.invoke("admin-update-user", {
-        body: { user_id: item.id, email: item.emailNovo, nova_senha: "12345678" },
-      });
-      if (error || (data as any)?.error) {
-        falhas.push({ nome: item.nome, erro: await extrairMensagemErroEdgeFunction(error, data) });
-      } else {
-        sucesso++;
-      }
-    }
-
-    setAtualizandoEmails(false);
-    toast({
-      title: `E-mails atualizados: ${sucesso} de ${previaEmailsPendentes.length}`,
       description:
         falhas.length > 0
           ? `Falhas: ${falhas.map((f) => `${f.nome} (${f.erro})`).join("; ")}`
@@ -528,71 +443,6 @@ export function AdminUsersPanel() {
                   <AlertDialogAction onClick={handleGerarMatriculas} disabled={gerandoMatriculas}>
                     {gerandoMatriculas && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Confirmar e gerar {previaMatriculas.length} matrículas
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={previaEmailsPendentes.length === 0}>
-                  <KeyRound className="w-4 h-4 mr-2" />
-                  Atualizar e-mails (planilha 23º CFO)
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="max-w-2xl">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Trocar o e-mail de LOGIN de {previaEmailsPendentes.length} aluno(s)?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription asChild>
-                    <div className="space-y-3 text-sm">
-                      <p>
-                        Isso troca o e-mail de acesso (login) de cada aluno pro e-mail pessoal
-                        informado na planilha da 23ª turma — não é só um dado de contato. Também
-                        redefine a senha de todos pra <strong>12345678</strong> (senha inicial
-                        padrão, pra primeiro login). Depois dessa mudança, o aluno precisa usar o
-                        e-mail novo e essa senha pra entrar.
-                      </p>
-                      <p className="text-destructive font-medium">
-                        Esta é a última vez que este botão deve ser usado — depois de confirmar,
-                        ele será removido do painel.
-                      </p>
-                      <div className="max-h-64 overflow-y-auto border rounded-md">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Aluno</TableHead>
-                              <TableHead>E-mail atual (login)</TableHead>
-                              <TableHead>Novo e-mail</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {previaEmailsPendentes.map((item) => (
-                              <TableRow key={item.id}>
-                                <TableCell className="text-xs">{item.nome}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground">
-                                  {item.emailAtual ?? "—"}
-                                </TableCell>
-                                <TableCell className="text-xs font-medium">{item.emailNovo}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                      {previaEmailsNaoEncontrados.length > 0 && (
-                        <p className="text-xs text-destructive">
-                          Não encontrados no cadastro (nome não bateu exatamente):{" "}
-                          {previaEmailsNaoEncontrados.map((i) => i.nome).join(", ")}
-                        </p>
-                      )}
-                    </div>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleAtualizarEmails} disabled={atualizandoEmails}>
-                    {atualizandoEmails && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Confirmar e trocar {previaEmailsPendentes.length} e-mails
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
