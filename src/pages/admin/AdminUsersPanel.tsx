@@ -126,6 +126,22 @@ export function AdminUsersPanel() {
     setNumeroTurma(m ? m[0] : "");
   }, [turmaAtual?.id]);
 
+  // Quantidade de alunos SEM conta no sistema (cadastrados em Desligamentos
+  // com aluno_nome_manual) que já têm matrícula didática atribuída — conta
+  // pra reservar o lugar deles na sequência, senão o gerador poderia
+  // reutilizar por engano um número já dado a alguém como a Lavínia
+  // (registrada em Desligamentos, não em profiles).
+  const [qtdMatriculasManuais, setQtdMatriculasManuais] = useState(0);
+  useEffect(() => {
+    if (!turmaAtualId) return;
+    supabase
+      .from("desligamentos")
+      .select("id", { count: "exact", head: true })
+      .eq("turma_id", turmaAtualId)
+      .not("matricula_academia_manual", "is", null)
+      .then(({ count }) => setQtdMatriculasManuais(count ?? 0));
+  }, [turmaAtualId]);
+
   const alunosOrdenados = profiles
     .filter((p) => p.role === "aluno")
     .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
@@ -138,10 +154,12 @@ export function AdminUsersPanel() {
   // sempre (já pode estar registrado em documento oficial, ex: "Registro
   // nº" no Histórico Escolar). Só quem ainda não tem matrícula recebe um
   // número novo, continuando a sequência depois do maior número já usado —
-  // ninguém que já tem número é renumerado.
+  // ninguém que já tem número é renumerado. A contagem inicial também
+  // reserva o(s) número(s) já usados por gente sem conta no sistema (ver
+  // qtdMatriculasManuais acima).
   // Além disso, com a turma marcada como encerrada (turmas.finalizada), o
   // botão fica bloqueado por completo — ver disabled no AlertDialogTrigger.
-  const qtdJaNumerados = alunosOrdenados.filter((p) => p.matricula_academia).length;
+  const qtdJaNumerados = alunosOrdenados.filter((p) => p.matricula_academia).length + qtdMatriculasManuais;
   let proximoSequencial = qtdJaNumerados;
   const previaMatriculas = alunosOrdenados.map((p) => {
     if (p.matricula_academia) {
