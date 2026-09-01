@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ScrollText } from "lucide-react";
+import { Loader2, ScrollText, ShieldAlert, ShieldCheck } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -22,6 +22,12 @@ interface LinhaAuditoria {
   dados_antigos: any;
   dados_novos: any;
   criado_em: string;
+}
+
+interface LinhaSeguranca {
+  tabela: string;
+  rls_ativado: boolean;
+  qtd_policies: number;
 }
 
 const NOMES_TABELA: Record<string, string> = {
@@ -60,6 +66,18 @@ export function AdminAuditoria() {
   const [loading, setLoading] = useState(true);
   const [filtroTabela, setFiltroTabela] = useState<string>("__todas__");
 
+  const [seguranca, setSeguranca] = useState<LinhaSeguranca[]>([]);
+  const [carregandoSeguranca, setCarregandoSeguranca] = useState(true);
+  useEffect(() => {
+    supabase
+      .rpc("checar_seguranca_rls")
+      .then(({ data }) => {
+        setSeguranca((data as LinhaSeguranca[]) ?? []);
+        setCarregandoSeguranca(false);
+      });
+  }, []);
+  const problemas = seguranca.filter((s) => !s.rls_ativado || s.qtd_policies === 0);
+
   useEffect(() => {
     async function carregar() {
       setLoading(true);
@@ -87,6 +105,66 @@ export function AdminAuditoria() {
           para o desenvolvedor.
         </p>
       </div>
+
+      <Card className={problemas.length > 0 ? "border-destructive" : "border-green-600/40"}>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            {problemas.length > 0 ? (
+              <ShieldAlert className="w-5 h-5 text-destructive" />
+            ) : (
+              <ShieldCheck className="w-5 h-5 text-green-600" />
+            )}
+            Segurança do banco (RLS)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {carregandoSeguranca ? (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Checando...
+            </p>
+          ) : problemas.length === 0 ? (
+            <p className="text-sm text-green-600">
+              Todas as {seguranca.length} tabelas têm RLS ativado com pelo menos 1 política de
+              acesso. Nada exposto sem controle no momento.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive font-medium">
+                ⚠️ {problemas.length} tabela(s) com problema — dados podem estar acessíveis sem
+                controle de permissão:
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tabela</TableHead>
+                    <TableHead>RLS ativado</TableHead>
+                    <TableHead>Políticas</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {problemas.map((p) => (
+                    <TableRow key={p.tabela}>
+                      <TableCell className="font-medium">{p.tabela}</TableCell>
+                      <TableCell>
+                        <Badge variant={p.rls_ativado ? "secondary" : "destructive"}>
+                          {p.rls_ativado ? "Sim" : "NÃO — desativado"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {p.qtd_policies === 0 ? (
+                          <Badge variant="destructive">0 (bloqueia tudo)</Badge>
+                        ) : (
+                          p.qtd_policies
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-primary/30">
         <CardHeader className="flex flex-row items-center justify-between">
