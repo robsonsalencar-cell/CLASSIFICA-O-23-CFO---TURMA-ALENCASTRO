@@ -39,6 +39,9 @@ const NOMES_TABELA: Record<string, string> = {
 };
 
 function resumoMudanca(linha: LinhaAuditoria): string {
+  if (linha.operacao === "RLS_AUTO_CORRIGIDO") {
+    return `⚠️ RLS estava DESATIVADO em "${linha.tabela}" — religado automaticamente pelo vigia`;
+  }
   if (linha.tabela.startsWith("notas_")) {
     const materia = linha.dados_novos?.materia ?? linha.dados_antigos?.materia ?? "—";
     const notaAntes = linha.dados_antigos?.nota_final;
@@ -201,7 +204,10 @@ export function AdminAuditoria() {
                 </TableHeader>
                 <TableBody>
                   {linhas.map((l) => (
-                    <TableRow key={l.id}>
+                    <TableRow
+                      key={l.id}
+                      className={l.operacao === "RLS_AUTO_CORRIGIDO" ? "bg-destructive/10" : undefined}
+                    >
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(l.criado_em).toLocaleString("pt-BR")}
                       </TableCell>
@@ -211,7 +217,13 @@ export function AdminAuditoria() {
                           {NOMES_TABELA[l.tabela] ?? l.tabela}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm">{resumoMudanca(l)}</TableCell>
+                      <TableCell
+                        className={
+                          l.operacao === "RLS_AUTO_CORRIGIDO" ? "text-sm text-destructive font-medium" : "text-sm"
+                        }
+                      >
+                        {resumoMudanca(l)}
+                      </TableCell>
                     </TableRow>
                   ))}
                   {linhas.length === 0 && (
