@@ -1,0 +1,28 @@
+-- ============================================================
+-- MIGRAÇÃO 25 — Remove política antiga e vazada de profiles.
+--
+-- CONTEXTO (descoberto em 29/08/2026, ao investigar um alerta de
+-- segurança do Supabase sobre RLS desativado em profiles): quando a
+-- migration_15 corrigiu o vazamento de "admin de uma turma vê perfil
+-- completo de aluno de OUTRA turma" (trocando is_admin() global por
+-- pode_configurar_turma(), escopado por turma), ela só deu DROP na
+-- política chamada "profiles_select_own_or_admin". Só que a
+-- migration_9 tinha, antes disso, dado DROP nessa mesma política e
+-- criado uma NOVA com nome diferente:
+-- "profiles_select_own_or_admin_or_ranking" — que nunca foi
+-- removida, porque tinha outro nome.
+--
+-- Resultado: as duas políticas de SELECT coexistiam desde então.
+-- Como o Postgres combina múltiplas políticas do mesmo comando com
+-- OU, a política antiga (com is_admin() global) continuava
+-- efetivamente liberando leitura cross-turma o tempo todo, por baixo
+-- da política nova e correta — a correção da migration_15 nunca
+-- chegou a ter efeito de verdade nessa tabela.
+--
+-- Some com a política antiga. A política atual
+-- "profiles_select_own_or_admin" (migration_16) já cobre os 3 casos
+-- necessários: dono do perfil, admin com autoridade sobre a turma, e
+-- ranking público.
+-- ============================================================
+
+drop policy if exists "profiles_select_own_or_admin_or_ranking" on public.profiles;
