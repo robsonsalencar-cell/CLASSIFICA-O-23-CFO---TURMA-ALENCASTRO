@@ -60,6 +60,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // admin_institucional e desenvolvedor só são atribuídos pelos fluxos
+    // próprios (transferir_admin_institucional, cadastro manual) — nunca
+    // aqui na criação genérica. Qualquer valor fora da lista permitida cai
+    // em "aluno" por segurança.
+    const rolesPermitidosNaCriacao = ["aluno", "admin", "visitante"];
+    const roleFinal = rolesPermitidosNaCriacao.includes(role) ? role : "aluno";
+
     // pode_configurar_turma cobre: dono oficial da turma, admin institucional
     // (se não finalizada ou autorizado), desenvolvedor, ou qualquer admin
     // numa turma nova que ainda não tem admin oficial (janela de bootstrap).
@@ -82,7 +89,7 @@ Deno.serve(async (req) => {
       user_metadata: {
         nome_completo,
         cpf: cpf ?? null,
-        role: role === "admin" ? "admin" : "aluno",
+        role: roleFinal,
         turma_id,
       },
     });
@@ -95,10 +102,19 @@ Deno.serve(async (req) => {
     }
 
     // O profile é criado automaticamente pelo trigger on_auth_user_created (ver schema.sql);
-    // aqui só precisamos gravar o turma_id e a matrícula, que o trigger não conhece.
+    // aqui só precisamos gravar o turma_id e a matrícula, que o trigger não conhece. Também
+    // corrigimos matriculado_cfoX aqui: a coluna nasce com true por padrão no banco
+    // (pensada pro caso comum de aluno), mas isso está errado pra admin/visitante — só quem
+    // é realmente aluno deve nascer matriculado.
     const { error: turmaError } = await adminClient
       .from("profiles")
-      .update({ turma_id, matricula_academia: matricula_academia || null })
+      .update({
+        turma_id,
+        matricula_academia: matricula_academia || null,
+        matriculado_cfo1: roleFinal === "aluno",
+        matriculado_cfo2: roleFinal === "aluno",
+        matriculado_cfo3: roleFinal === "aluno",
+      })
       .eq("id", created.user.id);
 
     if (turmaError) {
@@ -114,7 +130,7 @@ Deno.serve(async (req) => {
       p_registro_id: created.user.id,
       p_ator_id: caller.id,
       p_dados_antigos: null,
-      p_dados_novos: { nome_completo, email, role: role ?? "aluno", turma_id },
+      p_dados_novos: { nome_completo, email, role: roleFinal, turma_id },
     });
 
     // O profile é criado automaticamente pelo trigger on_auth_user_created (ver schema.sql)
