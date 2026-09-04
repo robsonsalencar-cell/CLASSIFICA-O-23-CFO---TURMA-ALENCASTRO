@@ -9,6 +9,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   isAdminInstitucional: boolean;
   isDeveloper: boolean;
+  isVisitante: boolean;
   precisaTrocarSenha: boolean;
   loading: boolean;
   // Visão simulada pelo admin (modo "espelhar aluno"). null = vendo tudo/próprio perfil.
@@ -95,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: profile?.role === "admin" || profile?.role === "admin_institucional" || profile?.role === "desenvolvedor",
     isAdminInstitucional: profile?.role === "admin_institucional",
     isDeveloper: profile?.role === "desenvolvedor",
+    isVisitante: profile?.role === "visitante",
     precisaTrocarSenha: profile ? profile.senha_trocada === false : false,
     loading,
     viewingAsAlunoId,

@@ -45,11 +45,8 @@ interface EdicaoState {
   email: string;
   cpf: string;
   matriculaAcademia: string;
-  // Aceita qualquer papel (pra exibir/preservar o valor atual mesmo quando é
-  // 'admin_institucional' ou 'desenvolvedor'), mas o <select> de edição só
-  // oferece "aluno"/"admin" como opção — os outros dois só mudam pelos
-  // fluxos próprios (transferir_admin_institucional, cadastro manual).
   role: AppRole;
+  roleOriginal: AppRole;
   nova_senha: string;
 }
 
@@ -57,7 +54,7 @@ export function AdminUsersPanel() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { turmaAtualId, turmaAtual } = useTurma();
+  const { turmaAtualId, turmaAtual, transferirAdminInstitucional } = useTurma();
 
   // formulário de cadastro
   const [nome, setNome] = useState("");
@@ -65,7 +62,7 @@ export function AdminUsersPanel() {
   const [cpf, setCpf] = useState("");
   const [matriculaNovo, setMatriculaNovo] = useState("");
   const [senha, setSenha] = useState("");
-  const [role, setRole] = useState<"aluno" | "admin">("aluno");
+  const [role, setRole] = useState<AppRole>("aluno");
   const [criando, setCriando] = useState(false);
 
   // edição inline
@@ -130,6 +127,18 @@ export function AdminUsersPanel() {
       .limit(1)
       .then(({ data }) => setDataFimCfo1(data?.[0]?.data_reuniao ?? null));
   }, [turmaAtualId]);
+
+  // Quem conta como "aluno" pra fins de listagem: papel aluno, OU matriculado
+  // em algum módulo mesmo tendo outro papel (ex: um admin que também é
+  // cadete, como o desenvolvedor) — continua junto dos alunos, com o selo do
+  // papel dele ao lado. Quem NÃO é matriculado em nada (ex: Admin
+  // Institucional puramente administrativo, Visitante) fica separado, pra
+  // não se confundir com a lista de alunos da turma.
+  function ehAlunoOuHibrido(p: Profile) {
+    return p.role === "aluno" || p.matriculado_cfo1 || p.matriculado_cfo2 || p.matriculado_cfo3;
+  }
+  const perfisAlunos = profiles.filter(ehAlunoOuHibrido);
+  const perfisAdminVisitante = profiles.filter((p) => !ehAlunoOuHibrido(p));
 
   const alunosOrdenados = profiles
     .filter((p) => p.role === "aluno")
@@ -307,6 +316,7 @@ export function AdminUsersPanel() {
       cpf: p.cpf ?? "",
       matriculaAcademia: p.matricula_academia ?? "",
       role: p.role,
+      roleOriginal: p.role,
       nova_senha: "",
     });
   }
@@ -320,6 +330,22 @@ export function AdminUsersPanel() {
     if (!edicao) return;
     setSalvando(true);
 
+    // admin_institucional é atribuído por um fluxo dedicado (garante só 1
+    // por turma, rebaixando automaticamente quem tinha o papel antes) — não
+    // pela edição genérica de perfil.
+    if (edicao.role === "admin_institucional" && edicao.roleOriginal !== "admin_institucional") {
+      const { error: erroTransferencia } = await transferirAdminInstitucional(userId);
+      if (erroTransferencia) {
+        setSalvando(false);
+        toast({
+          title: "Erro ao transferir admin institucional",
+          description: erroTransferencia,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const { data, error } = await supabase.functions.invoke("admin-update-user", {
       body: {
         user_id: userId,
@@ -327,7 +353,9 @@ export function AdminUsersPanel() {
         email: edicao.email,
         cpf: edicao.cpf || null,
         matricula_academia: edicao.matriculaAcademia || null,
-        role: edicao.role,
+        // admin_institucional já foi tratado acima (fluxo próprio) — nunca
+        // manda esse valor pra edição genérica, que rejeitaria com 403.
+        role: edicao.role === "admin_institucional" ? undefined : edicao.role,
         nova_senha: edicao.nova_senha || undefined,
       },
     });
@@ -366,6 +394,142 @@ export function AdminUsersPanel() {
 
     toast({ title: "Usuário excluído com sucesso" });
     carregarPerfis();
+  }
+
+  function renderLinhaUsuario(p: Profile) {
+                    const emEdicao = editandoId === p.id;
+                    return (
+                      <TableRow key={p.id}>
+                        {emEdicao && edicao ? (
+                          <>
+                            <TableCell>
+                              <Input
+                                className="h-8"
+                                value={edicao.nome_completo}
+                                onChange={(e) => setEdicao({ ...edicao, nome_completo: e.target.value })}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                className="h-8"
+                                type="email"
+                                value={edicao.email}
+                                onChange={(e) => setEdicao({ ...edicao, email: e.target.value })}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                className="h-8"
+                                value={edicao.cpf}
+                                onChange={(e) => setEdicao({ ...edicao, cpf: e.target.value })}
+                                placeholder="—"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                className="h-8"
+                                value={edicao.matriculaAcademia}
+                                onChange={(e) => setEdicao({ ...edicao, matriculaAcademia: e.target.value })}
+                                placeholder="—"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <select
+                                className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm"
+                                value={edicao.role}
+                                onChange={(e) => setEdicao({ ...edicao, role: e.target.value as AppRole })}
+                              >
+                                <option value="aluno">Aluno</option>
+                                <option value="admin">Administrador</option>
+                                <option value="admin_institucional">Admin institucional</option>
+                                <option value="visitante">Visitante</option>
+                              </select>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex flex-col gap-1 items-end">
+                                <div className="flex gap-1">
+                                  <Button size="icon" variant="ghost" onClick={() => salvarEdicao(p.id)} disabled={salvando} title="Salvar">
+                                    {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-success" />}
+                                  </Button>
+                                  <Button size="icon" variant="ghost" onClick={cancelarEdicao} title="Cancelar">
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <KeyRound className="w-3.5 h-3.5 text-muted-foreground" />
+                                  <Input
+                                    className="h-7 w-32 text-xs"
+                                    placeholder="Nova senha"
+                                    value={edicao.nova_senha}
+                                    onChange={(e) => setEdicao({ ...edicao, nova_senha: e.target.value })}
+                                  />
+                                </div>
+                              </div>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="font-medium">{p.nome_completo}</TableCell>
+                            <TableCell>{p.email}</TableCell>
+                            <TableCell>{p.cpf ?? "—"}</TableCell>
+                            <TableCell>{p.matricula_academia ?? "—"}</TableCell>
+                            <TableCell>
+                              <Badge variant={p.role === "aluno" ? "secondary" : "default"}>
+                                {p.role === "desenvolvedor"
+                                  ? "Desenvolvedor"
+                                  : p.role === "admin_institucional"
+                                  ? "Admin institucional"
+                                  : p.role === "admin"
+                                  ? "Administrador"
+                                  : p.role === "visitante"
+                                  ? "Visitante"
+                                  : "Aluno"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button size="icon" variant="ghost" onClick={() => iniciarEdicao(p)} title="Editar">
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    title="Excluir"
+                                    disabled={excluindoId === p.id}
+                                  >
+                                    {excluindoId === p.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4 text-destructive" />
+                                    )}
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Essa ação é permanente: a conta de login e todas as notas
+                                      lançadas para este aluno em todos os módulos (CFO I, II, III e
+                                      Classificação Geral) serão apagadas. Não é possível desfazer.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleExcluirUsuario(p.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Sim, excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    );
   }
 
   return (
@@ -409,10 +573,11 @@ export function AdminUsersPanel() {
               <select
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                 value={role}
-                onChange={(e) => setRole(e.target.value as "aluno" | "admin")}
+                onChange={(e) => setRole(e.target.value as AppRole)}
               >
                 <option value="aluno">Aluno</option>
                 <option value="admin">Administrador</option>
+                <option value="visitante">Visitante (só visualiza ranking)</option>
               </select>
             </div>
             <div className="md:col-span-6 flex justify-end">
@@ -450,7 +615,7 @@ export function AdminUsersPanel() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
-              Usuários cadastrados ({profiles.length}) {turmaAtual && <span className="text-muted-foreground font-normal text-sm">— {turmaAtual.nome_turma}</span>}
+              Alunos ({perfisAlunos.length}) {turmaAtual && <span className="text-muted-foreground font-normal text-sm">— {turmaAtual.nome_turma}</span>}
             </CardTitle>
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -564,138 +729,50 @@ export function AdminUsersPanel() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {profiles.map((p) => {
-                    const emEdicao = editandoId === p.id;
-                    return (
-                      <TableRow key={p.id}>
-                        {emEdicao && edicao ? (
-                          <>
-                            <TableCell>
-                              <Input
-                                className="h-8"
-                                value={edicao.nome_completo}
-                                onChange={(e) => setEdicao({ ...edicao, nome_completo: e.target.value })}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                className="h-8"
-                                type="email"
-                                value={edicao.email}
-                                onChange={(e) => setEdicao({ ...edicao, email: e.target.value })}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                className="h-8"
-                                value={edicao.cpf}
-                                onChange={(e) => setEdicao({ ...edicao, cpf: e.target.value })}
-                                placeholder="—"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                className="h-8"
-                                value={edicao.matriculaAcademia}
-                                onChange={(e) => setEdicao({ ...edicao, matriculaAcademia: e.target.value })}
-                                placeholder="—"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <select
-                                className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm"
-                                value={edicao.role}
-                                onChange={(e) => setEdicao({ ...edicao, role: e.target.value as "aluno" | "admin" })}
-                              >
-                                <option value="aluno">Aluno</option>
-                                <option value="admin">Administrador</option>
-                              </select>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex flex-col gap-1 items-end">
-                                <div className="flex gap-1">
-                                  <Button size="icon" variant="ghost" onClick={() => salvarEdicao(p.id)} disabled={salvando} title="Salvar">
-                                    {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-success" />}
-                                  </Button>
-                                  <Button size="icon" variant="ghost" onClick={cancelarEdicao} title="Cancelar">
-                                    <X className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <KeyRound className="w-3.5 h-3.5 text-muted-foreground" />
-                                  <Input
-                                    className="h-7 w-32 text-xs"
-                                    placeholder="Nova senha"
-                                    value={edicao.nova_senha}
-                                    onChange={(e) => setEdicao({ ...edicao, nova_senha: e.target.value })}
-                                  />
-                                </div>
-                              </div>
-                            </TableCell>
-                          </>
-                        ) : (
-                          <>
-                            <TableCell className="font-medium">{p.nome_completo}</TableCell>
-                            <TableCell>{p.email}</TableCell>
-                            <TableCell>{p.cpf ?? "—"}</TableCell>
-                            <TableCell>{p.matricula_academia ?? "—"}</TableCell>
-                            <TableCell>
-                              <Badge variant={p.role === "aluno" ? "secondary" : "default"}>
-                                {p.role === "desenvolvedor"
-                                  ? "Desenvolvedor"
-                                  : p.role === "admin_institucional"
-                                  ? "Admin institucional"
-                                  : p.role === "admin"
-                                  ? "Administrador"
-                                  : "Aluno"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button size="icon" variant="ghost" onClick={() => iniciarEdicao(p)} title="Editar">
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    title="Excluir"
-                                    disabled={excluindoId === p.id}
-                                  >
-                                    {excluindoId === p.id ? (
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="w-4 h-4 text-destructive" />
-                                    )}
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Essa ação é permanente: a conta de login e todas as notas
-                                      lançadas para este aluno em todos os módulos (CFO I, II, III e
-                                      Classificação Geral) serão apagadas. Não é possível desfazer.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleExcluirUsuario(p.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Sim, excluir
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </TableCell>
-                          </>
-                        )}
-                      </TableRow>
-                    );
-                  })}
+                  {perfisAlunos.map(renderLinhaUsuario)}
                 </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-primary/30">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Users className="w-5 h-5 text-muted-foreground" />
+            Administração e Visitantes ({perfisAdminVisitante.length})
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Administradores, Admin Institucional e Visitantes — ficam separados dos alunos pra não
+            se confundir com quem está cursando. Se uma dessas pessoas também for cadete
+            matriculado em algum módulo, ela aparece na lista de Alunos acima, com o selo do papel
+            dela ao lado do nome (não entra aqui).
+          </p>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : perfisAdminVisitante.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum administrador ou visitante cadastrado (fora de quem já é aluno) nesta turma.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>E-mail</TableHead>
+                    <TableHead>CPF</TableHead>
+                    <TableHead>Matrícula Acadêmica</TableHead>
+                    <TableHead>Perfil</TableHead>
+                    <TableHead className="w-32 text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>{perfisAdminVisitante.map(renderLinhaUsuario)}</TableBody>
               </Table>
             </div>
           )}

@@ -25,6 +25,7 @@ import ClassificacaoGeral from "@/pages/cfo/ClassificacaoGeral";
 import Cfo1 from "@/pages/cfo/Cfo1";
 import Cfo2 from "@/pages/cfo/Cfo2";
 import Cfo3 from "@/pages/cfo/Cfo3";
+import VisitanteRanking from "@/pages/visitante/VisitanteRanking";
 
 const queryClient = new QueryClient();
 
@@ -112,6 +113,16 @@ const App = () => (
                   <AppShell>
                     <Perfil />
                   </AppShell>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Rota exclusiva do Visitante — sem AppShell (sem menu de aluno/admin) */}
+            <Route
+              path="/visitante"
+              element={
+                <ProtectedRoute>
+                  <VisitanteRanking />
                 </ProtectedRoute>
               }
             />

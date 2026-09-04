@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, adminOnly = false, developerOnly = false }: ProtectedRouteProps) {
-  const { session, isAdmin, isDeveloper, precisaTrocarSenha, loading } = useAuth();
+  const { session, isAdmin, isDeveloper, isVisitante, precisaTrocarSenha, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -27,6 +27,12 @@ export function ProtectedRoute({ children, adminOnly = false, developerOnly = fa
 
   if (precisaTrocarSenha && location.pathname !== "/trocar-senha-obrigatoria") {
     return <Navigate to="/trocar-senha-obrigatoria" replace />;
+  }
+
+  // Visitante só acessa a própria tela de ranking — nenhuma outra rota
+  // protegida (aluno, admin, perfil, etc.) fica disponível pra esse papel.
+  if (isVisitante && location.pathname !== "/visitante") {
+    return <Navigate to="/visitante" replace />;
   }
 
   if (developerOnly && !isDeveloper) {
