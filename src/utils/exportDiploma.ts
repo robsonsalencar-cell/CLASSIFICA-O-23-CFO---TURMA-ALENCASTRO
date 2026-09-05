@@ -18,6 +18,7 @@ import {
   HorizontalPositionRelativeFrom,
   VerticalPositionRelativeFrom,
   TextWrappingType,
+  PageOrientation,
 } from "docx";
 import { carregarImagemBrasao } from "@/utils/brasaoImagem";
 
@@ -287,6 +288,12 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
       {
         properties: {
           page: {
+            // A4 paisagem — igual ao modelo original (dimensões reais do
+            // .doc: 16838x11906 twips = A4 landscape). A biblioteca "docx"
+            // já inverte width/height sozinha quando orientation=LANDSCAPE,
+            // então aqui passamos os valores "de retrato" (11906x16838) —
+            // passar já invertido cancela a inversão e volta pra retrato.
+            size: { orientation: PageOrientation.LANDSCAPE, width: 11906, height: 16838 },
             borders: {
               pageBorders: { display: PageBorderDisplay.ALL_PAGES, offsetFrom: PageBorderOffsetFrom.TEXT },
               pageBorderTop: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
