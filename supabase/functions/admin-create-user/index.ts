@@ -86,9 +86,18 @@ Deno.serve(async (req) => {
       email,
       password: senha_provisoria,
       email_confirm: true,
+      // nome_completo/cpf ficam em user_metadata (não são sensíveis pra fins
+      // de autorização). role/turma_id vão em app_metadata — ver migration_33:
+      // esse campo só pode ser escrito por uma chamada com service_role (como
+      // esta), nunca por um supabase.auth.signUp() público. handle_new_user()
+      // agora lê ambos de raw_app_meta_data, então mesmo que o cadastro
+      // público do Supabase esteja habilitado, ninguém consegue se auto-
+      // atribuir um role/turma_id na hora do cadastro.
       user_metadata: {
         nome_completo,
         cpf: cpf ?? null,
+      },
+      app_metadata: {
         role: roleFinal,
         turma_id,
       },

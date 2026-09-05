@@ -14,12 +14,15 @@ export interface DadosBiograficosAluno {
   ano_conclusao_ensino_medio: string | null;
   grau_concluido: string | null;
   numero_registro_historico: number | null;
+  tema_tcc: string | null;
+  orientador_tcc: string | null;
+  data_apresentacao_tcc: string | null;
 }
 
 const CAMPOS =
   "nome_completo, matricula, rg_pm, filiacao_pai, filiacao_mae, naturalidade, " +
   "data_nascimento, matricula_academia, escola_anterior, ano_conclusao_ensino_medio, " +
-  "grau_concluido, numero_registro_historico";
+  "grau_concluido, numero_registro_historico, tema_tcc, orientador_tcc, data_apresentacao_tcc";
 
 /**
  * Busca os dados biográficos de um aluno (Fase 2 — Histórico Escolar), sob

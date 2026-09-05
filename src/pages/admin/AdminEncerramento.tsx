@@ -22,8 +22,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, UserMinus, FileSignature, Plus, Trash2, Pencil } from "lucide-react";
+import { Loader2, UserMinus, FileSignature, Plus, Trash2, Pencil, FileDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { exportarAtaWord, TipoAta } from "@/utils/exportAta";
+import { buscarRankingParaAta } from "@/utils/rankingParaAta";
 
 interface Desligamento {
   id: string;
@@ -50,8 +52,18 @@ interface Comissao {
   bcg_numero: string | null;
   bcg_data: string | null;
   data_reuniao: string | null;
+  tipo_ata: TipoAta | null;
+  corpo_narrativo: string | null;
+  turma_titulo_ata: string | null;
   membros: { nome: string; posto_graduacao: string; papel: string; ordem: number }[];
 }
+
+const TIPOS_ATA: { value: TipoAta; label: string }[] = [
+  { value: "ata_1_ano", label: "Ata de Encerramento do 1º Ano (usa a média do CFO I)" },
+  { value: "ata_2_ano", label: "Ata de Encerramento do 2º Ano (usa a média do CFO II)" },
+  { value: "ata_3_ano", label: "Ata de Encerramento do 3º Ano (usa a média do CFO III)" },
+  { value: "ata_classificacao_geral", label: "Ata de Classificação Geral (usa a média dos 3 módulos)" },
+];
 
 const MODULOS = [
   { value: "cfo1", label: "CFO I" },
@@ -81,7 +93,9 @@ export function AdminEncerramento() {
         .order("data_desligamento"),
       supabase
         .from("comissoes_encerramento")
-        .select("id, referente_a, portaria_numero, portaria_data, bcg_numero, bcg_data, data_reuniao, membros_comissao(nome, posto_graduacao, papel, ordem)")
+        .select(
+          "id, referente_a, portaria_numero, portaria_data, bcg_numero, bcg_data, data_reuniao, tipo_ata, corpo_narrativo, turma_titulo_ata, membros_comissao(nome, posto_graduacao, papel, ordem)"
+        )
         .eq("turma_id", turmaAtualId)
         .order("criado_em", { ascending: false }),
     ]);
@@ -374,6 +388,10 @@ function ComissoesCard({
   const [bcgNumero, setBcgNumero] = useState("");
   const [bcgData, setBcgData] = useState("");
   const [dataReuniao, setDataReuniao] = useState("");
+  const [tipoAta, setTipoAta] = useState<TipoAta | "">("");
+  const [turmaTituloAta, setTurmaTituloAta] = useState("");
+  const [corpoNarrativo, setCorpoNarrativo] = useState("");
+  const [gerandoAtaId, setGerandoAtaId] = useState<string | null>(null);
   const [membros, setMembros] = useState<MembroForm[]>([
     { nome: "", posto_graduacao: "", papel: "Presidente" },
   ]);
@@ -385,6 +403,9 @@ function ComissoesCard({
     setBcgNumero("");
     setBcgData("");
     setDataReuniao("");
+    setTipoAta("");
+    setTurmaTituloAta("");
+    setCorpoNarrativo("");
     setMembros([{ nome: "", posto_graduacao: "", papel: "Presidente" }]);
   }
 
@@ -408,6 +429,9 @@ function ComissoesCard({
         bcg_numero: bcgNumero || null,
         bcg_data: bcgData || null,
         data_reuniao: dataReuniao || null,
+        tipo_ata: tipoAta || null,
+        turma_titulo_ata: turmaTituloAta || null,
+        corpo_narrativo: corpoNarrativo || null,
       })
       .select("id")
       .single();
@@ -448,6 +472,58 @@ function ComissoesCard({
       return;
     }
     onChange();
+  }
+
+  async function handleGerarAta(c: Comissao) {
+    if (!turmaAtualId || !c.tipo_ata) return;
+    if (!c.data_reuniao) {
+      toast({
+        title: "Falta a data da reunião de encerramento",
+        description: "Ela é usada tanto na abertura da Ata quanto pra saber quem entra na classificação.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!c.corpo_narrativo || !c.turma_titulo_ata) {
+      toast({
+        title: "Falta preencher a Ata",
+        description: "Edite a comissão e preencha o título da turma e o corpo da Ata antes de gerar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (c.membros.length === 0) {
+      toast({ title: "Cadastre pelo menos 1 membro na comissão antes de gerar", variant: "destructive" });
+      return;
+    }
+    setGerandoAtaId(c.id);
+    try {
+      const ranking = await buscarRankingParaAta(c.tipo_ata, turmaAtualId, c.data_reuniao);
+      if (ranking.length === 0) {
+        toast({
+          title: "Nenhum aluno entrou na classificação",
+          description: "Confira se as notas do módulo já foram lançadas e se a data de encerramento está certa.",
+          variant: "destructive",
+        });
+        return;
+      }
+      await exportarAtaWord({
+        titulo: c.referente_a,
+        turmaTitulo: c.turma_titulo_ata,
+        portariaNumero: c.portaria_numero,
+        portariaData: c.portaria_data,
+        bcgNumero: c.bcg_numero,
+        bcgData: c.bcg_data,
+        dataReuniao: c.data_reuniao,
+        membros: c.membros as any,
+        corpoNarrativo: c.corpo_narrativo,
+        ranking,
+      });
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar a Ata", description: err?.message ?? String(err), variant: "destructive" });
+    } finally {
+      setGerandoAtaId(null);
+    }
   }
 
   return (
@@ -503,7 +579,52 @@ function ComissoesCard({
                 <div className="space-y-1">
                   <Label>Data da reunião de encerramento (opcional, pode completar depois)</Label>
                   <Input type="date" value={dataReuniao} onChange={(e) => setDataReuniao(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">
+                    Também define o corte: quem se desligou até essa data fica fora da lista de
+                    aprovados gerada na Ata (mesmo já tendo nota lançada em tudo).
+                  </p>
                 </div>
+
+                <div className="space-y-1">
+                  <Label>Gera Ata de Encerramento? (opcional)</Label>
+                  <Select value={tipoAta} onValueChange={(v) => setTipoAta(v as TipoAta)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="— Não gera Ata por esta tela —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPOS_ATA.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {tipoAta && (
+                  <>
+                    <div className="space-y-1">
+                      <Label>Título da turma na Ata</Label>
+                      <Input
+                        value={turmaTituloAta}
+                        onChange={(e) => setTurmaTituloAta(e.target.value)}
+                        placeholder="ex: TURMA ALENCASTRO – 25.2300.1"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Corpo da Ata (fatos do período)</Label>
+                      <Textarea
+                        value={corpoNarrativo}
+                        onChange={(e) => setCorpoNarrativo(e.target.value)}
+                        rows={6}
+                        placeholder='Comece em "Dando início aos trabalhos, verificou-se que..." — narre início do período, matriculados, desligamentos ocorridos NESTE período específico e a data de encerramento. O cabeçalho (comissão/portaria) e a lista de classificação (com nota por extenso) são gerados automaticamente, não repita isso aqui.'
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Esse texto é jurídico/institucional — escreva ou cole exatamente como deve
+                        constar no documento oficial; o sistema não inventa fatos sozinho.
+                      </p>
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-2">
                   <Label>Membros da comissão</Label>
@@ -577,9 +698,27 @@ function ComissoesCard({
                       {c.data_reuniao && ` — Reunião em ${new Date(c.data_reuniao + "T00:00:00").toLocaleDateString("pt-BR")}`}
                     </p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleExcluir(c.id)}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <EditarDadosAtaDialog comissao={c} onSaved={onChange} />
+                    {c.tipo_ata && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleGerarAta(c)}
+                        disabled={gerandoAtaId === c.id}
+                      >
+                        {gerandoAtaId === c.id ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <FileDown className="w-4 h-4 mr-2" />
+                        )}
+                        Gerar Ata (Word)
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={() => handleExcluir(c.id)}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
                 {c.membros.length > 0 && (
                   <ul className="text-sm space-y-0.5">
@@ -596,5 +735,99 @@ function ComissoesCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// Diálogo separado só pros 3 campos usados na geração da Ata (tipo, título
+// da turma, corpo narrativo) — não mexe em portaria/BCG/membros, que já têm
+// seu próprio fluxo de cadastro (a tela ainda não tem "editar" completo pra
+// esses, só criar/excluir).
+function EditarDadosAtaDialog({ comissao, onSaved }: { comissao: Comissao; onSaved: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [tipoAta, setTipoAta] = useState<TipoAta | "">(comissao.tipo_ata ?? "");
+  const [turmaTituloAta, setTurmaTituloAta] = useState(comissao.turma_titulo_ata ?? "");
+  const [corpoNarrativo, setCorpoNarrativo] = useState(comissao.corpo_narrativo ?? "");
+
+  function abrir() {
+    setTipoAta(comissao.tipo_ata ?? "");
+    setTurmaTituloAta(comissao.turma_titulo_ata ?? "");
+    setCorpoNarrativo(comissao.corpo_narrativo ?? "");
+    setAberto(true);
+  }
+
+  async function salvar() {
+    setSalvando(true);
+    const { error } = await supabase
+      .from("comissoes_encerramento")
+      .update({
+        tipo_ata: tipoAta || null,
+        turma_titulo_ata: turmaTituloAta || null,
+        corpo_narrativo: corpoNarrativo || null,
+      })
+      .eq("id", comissao.id);
+    setSalvando(false);
+    if (error) {
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Dados da Ata salvos" });
+    setAberto(false);
+    onSaved();
+  }
+
+  return (
+    <Dialog open={aberto} onOpenChange={setAberto}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" onClick={abrir} title="Editar dados da Ata">
+          <Pencil className="w-4 h-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Dados da Ata — {comissao.referente_a}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+          <div className="space-y-1">
+            <Label>Gera Ata de Encerramento? (opcional)</Label>
+            <Select value={tipoAta} onValueChange={(v) => setTipoAta(v as TipoAta)}>
+              <SelectTrigger>
+                <SelectValue placeholder="— Não gera Ata por esta tela —" />
+              </SelectTrigger>
+              <SelectContent>
+                {TIPOS_ATA.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Título da turma na Ata</Label>
+            <Input
+              value={turmaTituloAta}
+              onChange={(e) => setTurmaTituloAta(e.target.value)}
+              placeholder="ex: TURMA ALENCASTRO – 25.2300.1"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Corpo da Ata (fatos do período)</Label>
+            <Textarea
+              value={corpoNarrativo}
+              onChange={(e) => setCorpoNarrativo(e.target.value)}
+              rows={8}
+              placeholder='Comece em "Dando início aos trabalhos, verificou-se que..." — narre início do período, matriculados, desligamentos ocorridos NESTE período específico e a data de encerramento. O cabeçalho (comissão/portaria) e a lista de classificação (com nota por extenso) são gerados automaticamente, não repita isso aqui.'
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={salvar} disabled={salvando}>
+            {salvando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
