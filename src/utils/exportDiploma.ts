@@ -165,7 +165,15 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
     new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("ACADEMIA DE POLÍCIA MILITAR COSTA VERDE", { size: 34, font: FONTE_TITULO })] }),
   ];
 
-  // Assinaturas da frente: Bacharel (o próprio formando) | Comandante da APMCV
+  // Assinaturas da frente: Bacharel (o próprio formando) | espaço | Comandante da APMCV
+  //
+  // Três colunas em vez de duas: uma coluna vazia no meio empurra o bloco do
+  // Bacharel pra zona esquerda da página e o do Comandante pra zona direita
+  // (mantendo a posição que já ficou boa), mas cada bloco fica CENTRALIZADO
+  // dentro da própria coluna (não alinhado à direita/esquerda) — assim as
+  // duas linhas do Comandante ficam centralizadas uma em relação à outra,
+  // sem precisar deslocar o texto pra fora da posição já aprovada.
+  const bordaInvisivelCelula = { top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } };
   const linhaAssinaturasFrente = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: SEM_BORDA,
@@ -173,27 +181,28 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 35, type: WidthType.PERCENTAGE },
-            borders: { top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } },
+            width: { size: 30, type: WidthType.PERCENTAGE },
+            borders: bordaInvisivelCelula,
             children: [
-              // Alinhado à esquerda (não centralizado na célula) para ficar
-              // mais próximo da margem esquerda, igual ao modelo original.
-              new Paragraph({ alignment: AlignmentType.LEFT, children: [txt("________________", { size: 36 })] }),
-              new Paragraph({ alignment: AlignmentType.LEFT, children: [txt("Bacharel", { size: 36 })] }),
+              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("________________", { size: 36 })] }),
+              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("Bacharel", { size: 36 })] }),
             ],
           }),
           new TableCell({
-            width: { size: 65, type: WidthType.PERCENTAGE },
-            borders: { top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } },
+            width: { size: 10, type: WidthType.PERCENTAGE },
+            borders: bordaInvisivelCelula,
+            children: [new Paragraph({ children: [] })],
+          }),
+          new TableCell({
+            width: { size: 60, type: WidthType.PERCENTAGE },
+            borders: bordaInvisivelCelula,
             children: [
-              // Alinhado à direita (não centralizado na célula) para ficar
-              // mais próximo da margem direita, igual ao modelo original.
-              new Paragraph({ alignment: AlignmentType.RIGHT, children: [txt("_______________________________", { size: 36 })] }),
+              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("_______________________________", { size: 36 })] }),
               new Paragraph({
-                alignment: AlignmentType.RIGHT,
+                alignment: AlignmentType.CENTER,
                 children: [vermelho(dados.comandanteNome, { size: 35 }), txt(" - ", { size: 35 }), vermelho(dados.comandantePosto, { size: 35 })],
               }),
-              new Paragraph({ alignment: AlignmentType.RIGHT, children: [txt("Comandante da APMCV", { size: 32 })] }),
+              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("Comandante da APMCV", { size: 32 })] }),
             ],
           }),
         ],
