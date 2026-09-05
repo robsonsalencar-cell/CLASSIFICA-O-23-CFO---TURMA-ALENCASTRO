@@ -66,9 +66,10 @@ export function StudentDetailsModal({
   const [historicoDialogAberto, setHistoricoDialogAberto] = useState(false);
   const [historicoFormato, setHistoricoFormato] = useState<"word" | null>(null);
   const [historicoAlunoId, setHistoricoAlunoId] = useState<string | null>(null);
+  const [historicoRefetchToken, setHistoricoRefetchToken] = useState(0);
   const [gerandoHistorico, setGerandoHistorico] = useState(false);
   const [gerandoDiploma, setGerandoDiploma] = useState(false);
-  const { dados: bioAluno, loading: carregandoBio } = useDadosBiograficosAluno(historicoAlunoId);
+  const { dados: bioAluno, loading: carregandoBio } = useDadosBiograficosAluno(historicoAlunoId, historicoRefetchToken);
   if (!student) return null;
 
   const daGeral = Boolean((student as any).cfoAverages);
@@ -150,6 +151,7 @@ export function StudentDetailsModal({
     if (!student) return;
     setHistoricoFormato(formato);
     setHistoricoAlunoId((student as AlunoModulo).aluno_id);
+    setHistoricoRefetchToken((n) => n + 1); // força busca nova mesmo se for o mesmo aluno de antes
     setHistoricoDialogAberto(true);
   }
 

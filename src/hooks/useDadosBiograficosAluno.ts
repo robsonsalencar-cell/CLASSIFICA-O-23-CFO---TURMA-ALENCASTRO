@@ -28,8 +28,16 @@ const CAMPOS =
  * Busca os dados biográficos de um aluno (Fase 2 — Histórico Escolar), sob
  * demanda. Passar `null` não dispara busca nenhuma (usado quando o modal de
  * exportação ainda não foi aberto).
+ *
+ * `refetchToken` (opcional): incremente esse número toda vez que quiser
+ * forçar uma busca nova, mesmo pro MESMO alunoId — sem isso, reabrir o
+ * diálogo pro mesmo aluno (sem navegar pra outro no meio) não reexecuta a
+ * busca (o efeito só reage a MUDANÇA de alunoId), então dados editados no
+ * banco entre uma abertura e outra não apareciam sem recarregar a página
+ * inteira. Bug real encontrado em 05/09/2026 gerando o Histórico da
+ * Lauriane Simonini logo depois de atualizar os dados dela no banco.
  */
-export function useDadosBiograficosAluno(alunoId: string | null) {
+export function useDadosBiograficosAluno(alunoId: string | null, refetchToken = 0) {
   const [dados, setDados] = useState<DadosBiograficosAluno | null>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -61,7 +69,7 @@ export function useDadosBiograficosAluno(alunoId: string | null) {
     return () => {
       cancelado = true;
     };
-  }, [alunoId]);
+  }, [alunoId, refetchToken]);
 
   return { dados, loading, erro };
 }
