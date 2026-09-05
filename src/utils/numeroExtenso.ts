@@ -114,6 +114,8 @@ export function numeroCardinalPorExtenso(n: number): string {
  */
 export function aberturaAtaPorExtenso(dataIso: string): string {
   const [ano, mes, dia] = dataIso.split("-").map(Number);
-  const diaTexto = dia === 1 ? "um" : numeroCardinalPorExtenso(dia);
-  return `Aos ${diaTexto} dias do mês de ${MESES[mes - 1]} do ano de ${numeroCardinalPorExtenso(ano)}`;
+  // Fórmula jurídica padrão: dia 1 usa singular/ordinal ("Ao primeiro dia"),
+  // não o plural cardinal ("Aos um dias", que é gramaticalmente errado).
+  const abertura = dia === 1 ? "Ao primeiro dia" : `Aos ${numeroCardinalPorExtenso(dia)} dias`;
+  return `${abertura} do mês de ${MESES[mes - 1]} do ano de ${numeroCardinalPorExtenso(ano)}`;
 }

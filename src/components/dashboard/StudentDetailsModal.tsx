@@ -22,6 +22,7 @@ import {
   DadosExportacaoHistorico,
 } from "@/utils/exportHistorico";
 import { exportarDiplomaWord, DadosExportacaoDiploma } from "@/utils/exportDiploma";
+import { buscarRankingParaAta } from "@/utils/rankingParaAta";
 import { formatarRgPm } from "@/utils/formatadores";
 import { useDadosBiograficosAluno } from "@/hooks/useDadosBiograficosAluno";
 import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
@@ -168,6 +169,34 @@ export function StudentDetailsModal({
     }
 
     const cfoAverages = (student as any).cfoAverages ?? {};
+
+    // Classificação oficial: usa a MESMA fonte da Ata de Classificação Geral
+    // (exclui quem se desligou antes do encerramento) em vez do ranking
+    // "bruto" calculado na tela de Classificação Geral, que não sabe nada
+    // sobre desligamentos e pode incluir/deslocar posições incorretamente
+    // (mesma classe de bug que motivou a criação de rankingParaAta.ts pra
+    // Ata). Se a comissão de Classificação Geral dessa turma ainda não foi
+    // cadastrada (curso ainda não encerrou oficialmente), cai no ranking
+    // bruto como antes — não há uma data de corte oficial pra aplicar.
+    let mediaFinal = student.mediaFinal;
+    let rank = student.rank;
+    const { data: comissaoGeralHistorico } = await supabase
+      .from("comissoes_encerramento")
+      .select("data_reuniao")
+      .eq("tipo_ata", "ata_classificacao_geral")
+      .eq("turma_id", config.id)
+      .order("criado_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (comissaoGeralHistorico?.data_reuniao) {
+      const rankingOficial = await buscarRankingParaAta("ata_classificacao_geral", config.id, comissaoGeralHistorico.data_reuniao);
+      const posicao = rankingOficial.findIndex((r) => r.alunoId === alunoId);
+      if (posicao >= 0) {
+        mediaFinal = rankingOficial[posicao].media;
+        rank = posicao + 1;
+      }
+    }
+
     const dados: DadosExportacaoHistorico = {
       nomeAluno: student.nome,
       filiacaoPai: bioAluno.filiacao_pai,
@@ -191,8 +220,8 @@ export function StudentDetailsModal({
       mediaCfo1: cfoAverages.cfoI ?? null,
       mediaCfo2: cfoAverages.cfoII ?? null,
       mediaCfo3: cfoAverages.cfoIII ?? null,
-      mediaFinal: student.mediaFinal,
-      rank: student.rank,
+      mediaFinal,
+      rank,
       numeroRegistro: numero,
       comandanteNome: config.comandante_apmcv_nome,
       comandantePosto: config.comandante_apmcv_posto,
@@ -213,30 +242,34 @@ export function StudentDetailsModal({
     const alunoId = (student as AlunoModulo).aluno_id;
     setGerandoDiploma(true);
     try {
-      const [{ data: bio }, { data: comissaoGeral }] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
-            "nome_completo, filiacao_pai, filiacao_mae, rg_pm, data_nascimento, naturalidade, tema_tcc, data_apresentacao_tcc, turma_id"
-          )
-          .eq("id", alunoId)
-          .single(),
-        supabase
-          .from("comissoes_encerramento")
-          .select("data_reuniao, turma_id")
-          .eq("tipo_ata", "ata_classificacao_geral")
-          .order("criado_em", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ]);
+      // Busca o aluno primeiro para saber a turma dele, e só então busca a
+      // comissão de Classificação Geral DAQUELA turma — buscar em paralelo
+      // "a comissão mais recente entre todas as turmas" (sem filtro de
+      // turma_id) pegava a data de conclusão de outra turma sempre que ela
+      // não fosse a última comissão criada no sistema, deixando a data de
+      // conclusão do Diploma em branco por engano.
+      const { data: bio } = await supabase
+        .from("profiles")
+        .select(
+          "nome_completo, filiacao_pai, filiacao_mae, rg_pm, data_nascimento, naturalidade, tema_tcc, data_apresentacao_tcc, turma_id"
+        )
+        .eq("id", alunoId)
+        .single();
       if (!bio) {
         toast({ title: "Não foi possível carregar os dados do aluno", variant: "destructive" });
         return;
       }
-      const dataConclusao =
-        comissaoGeral?.turma_id === bio.turma_id && comissaoGeral?.data_reuniao
-          ? dataPorExtenso(new Date(comissaoGeral.data_reuniao + "T00:00:00"))
-          : null;
+      const { data: comissaoGeral } = await supabase
+        .from("comissoes_encerramento")
+        .select("data_reuniao")
+        .eq("tipo_ata", "ata_classificacao_geral")
+        .eq("turma_id", bio.turma_id)
+        .order("criado_em", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const dataConclusao = comissaoGeral?.data_reuniao
+        ? dataPorExtenso(new Date(comissaoGeral.data_reuniao + "T00:00:00"))
+        : null;
       const dados: DadosExportacaoDiploma = {
         nomeAluno: bio.nome_completo,
         filiacaoPai: bio.filiacao_pai,

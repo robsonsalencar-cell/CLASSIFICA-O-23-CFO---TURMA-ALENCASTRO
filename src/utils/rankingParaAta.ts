@@ -35,21 +35,30 @@ async function mediaPorAluno(
   ]);
 
   const perfisPorId = new Map<string, PerfilRow>((perfis ?? []).map((p: any) => [p.id, p]));
-  const porAluno = new Map<string, number[]>();
+  // Map por matéria (não array) — protege contra dobrar a nota na média se
+  // por acaso existir mais de um lançamento pra mesma matéria/aluno (ex:
+  // correção de nota que gerou linha duplicada em vez de atualizar).
+  const porAluno = new Map<string, Map<string, number>>();
 
   for (const n of (notas ?? []) as NotaRow[]) {
     if (n.nota_final == null) continue;
     if (!materiasOficiais.includes(n.materia)) continue;
     const perfil = perfisPorId.get(n.aluno_id);
     if (!perfil || !perfil[colunaMatriculado]) continue; // só da turma em foco e matriculado no módulo
-    if (!porAluno.has(n.aluno_id)) porAluno.set(n.aluno_id, []);
-    porAluno.get(n.aluno_id)!.push(n.nota_final);
+    if (!porAluno.has(n.aluno_id)) porAluno.set(n.aluno_id, new Map());
+    porAluno.get(n.aluno_id)!.set(n.materia, n.nota_final);
   }
 
   const resultado = new Map<string, { nome: string; media: number }>();
-  for (const [alunoId, notasArr] of porAluno) {
+  for (const [alunoId, notasPorMateria] of porAluno) {
+    // Só entra na classificação oficial quem tem nota lançada em TODAS as
+    // disciplinas oficiais do módulo — um aluno com notas parciais (ex:
+    // professor ainda não lançou todas as matérias) não deve aparecer com
+    // uma média inflada/distorcida num documento com peso legal.
+    if (notasPorMateria.size !== materiasOficiais.length) continue;
     const perfil = perfisPorId.get(alunoId)!;
-    const media = notasArr.reduce((a, b) => a + b, 0) / notasArr.length;
+    const valores = Array.from(notasPorMateria.values());
+    const media = valores.reduce((a, b) => a + b, 0) / valores.length;
     resultado.set(alunoId, { nome: perfil.nome_completo, media });
   }
   return resultado;
@@ -111,6 +120,6 @@ export async function buscarRankingParaAta(
 
   return Array.from(mapa.entries())
     .filter(([alunoId]) => !idsExcluidos.has(alunoId))
-    .map(([, v]) => v)
+    .map(([alunoId, v]) => ({ alunoId, ...v }))
     .sort((a, b) => b.media - a.media);
 }

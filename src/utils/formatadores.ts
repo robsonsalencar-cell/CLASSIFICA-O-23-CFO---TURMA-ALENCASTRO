@@ -9,6 +9,13 @@
 export function formatarRgPm(valor: string | null): string | null {
   if (!valor) return valor;
   const limpo = valor.trim();
-  if (!/^\d{6}$/.test(limpo)) return limpo;
-  return `${limpo.slice(0, 3)}.${limpo.slice(3)}`;
+  // Só formata dígitos puros (sem pontuação, hífen ou letra — ex: RG com
+  // dígito verificador tipo "2161631-0" já vem assim e deve ser devolvido
+  // como veio, mais seguro que tentar adivinhar onde pontuar).
+  if (!/^\d+$/.test(limpo) || limpo.length <= 3) return limpo;
+  // Agrupa em blocos de 3 a partir da direita, separados por ponto — mesma
+  // convenção usada em RG/CPF nos documentos oficiais (confirmado com dado
+  // real de 6 dígitos: "888457" -> "888.457"; generaliza pra outros
+  // tamanhos de RG, já que nem todo RG PM tem exatamente 6 dígitos).
+  return limpo.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
