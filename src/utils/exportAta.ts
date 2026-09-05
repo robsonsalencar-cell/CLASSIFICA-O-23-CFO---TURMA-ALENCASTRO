@@ -43,6 +43,14 @@ export interface DadosExportacaoAta {
   ranking: AlunoRankingAta[]; // já ordenado desc, já excluindo desligados-antes-do-encerramento
 }
 
+// Tamanhos conferidos direto no XML das 2 Atas reais mais recentes da 23ª
+// turma (3º Ano e Classificação Geral, ambas de 02/09/2026) — tamanho em
+// "half-points" (unidade que o TextRun.size espera; 22 = 11pt).
+const TAM_CORPO = 22; // 11pt — cabeçalho, narrativa, classificação, fechamento, assinaturas
+const TAM_TITULO = 24; // 12pt — título da Ata ("Ata de Encerramento do...")
+const TAM_RODAPE_NOME = 18; // 9pt — "ACADEMIA DE POLÍCIA MILITAR COSTA VERDE" no rodapé
+const TAM_RODAPE_ENDERECO = 16; // 8pt — endereço/telefone no rodapé
+
 function formatarDataSimples(iso: string): string {
   const [ano, mes, dia] = iso.split("-").map(Number);
   const MESES = [
@@ -74,20 +82,30 @@ function montarAbertura(dados: DadosExportacaoAta): string {
 }
 
 /**
- * Monta o bloco de classificação no formato usado nas Atas reais: um aluno
- * por linha, em texto corrido, com a nota por extenso individual —
- * "1° Lugar Al Of PM Fulano 9,7894 (nove vírgula sete mil oitocentos e
- * noventa e quatro);" — e ponto final na última linha.
+ * Monta o bloco de classificação no formato usado nas Atas reais: UM
+ * PARÁGRAFO POR ALUNO (não um bloco de texto corrido único — conferido no
+ * XML das Atas reais, cada colocação é seu próprio parágrafo), com o
+ * prefixo "N° Lugar Al Of PM " em NEGRITO e o resto (nome, nota, extenso)
+ * em peso normal — "1° Lugar Al Of PM " (negrito) + "Fulano - média 9,7894
+ * (nove vírgula sete mil oitocentos e noventa e quatro);" (normal). Ponto
+ * final em vez de ";" na última linha.
  */
-export function montarBlocoClassificacao(ranking: AlunoRankingAta[]): string {
-  return ranking
-    .map((aluno, i) => {
-      const posicao = i + 1;
-      const mediaTexto = aluno.media.toFixed(4).replace(".", ",");
-      const pontuacao = i === ranking.length - 1 ? "." : ";";
-      return `${posicao}° Lugar Al Of PM ${aluno.nome} ${mediaTexto} (${notaPorExtenso4(aluno.media)})${pontuacao}`;
-    })
-    .join(" ");
+export function montarParagrafosClassificacao(ranking: AlunoRankingAta[]): Paragraph[] {
+  return ranking.map((aluno, i) => {
+    const posicao = i + 1;
+    const mediaTexto = aluno.media.toFixed(4).replace(".", ",");
+    const pontuacao = i === ranking.length - 1 ? "." : ";";
+    return new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      children: [
+        new TextRun({ text: `${posicao}° Lugar Al Of PM `, bold: true, size: TAM_CORPO }),
+        new TextRun({
+          text: `${aluno.nome} - média ${mediaTexto} (${notaPorExtenso4(aluno.media)})${pontuacao}`,
+          size: TAM_CORPO,
+        }),
+      ],
+    });
+  });
 }
 
 function nomeSecretario(membros: MembroComissaoAta[]): MembroComissaoAta {
@@ -108,6 +126,10 @@ function downloadBlob(blob: Blob, filename: string) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(link.href);
+}
+
+function txt(texto: string, opts: { bold?: boolean; size?: number } = {}): TextRun {
+  return new TextRun({ text: texto, bold: opts.bold, size: opts.size ?? TAM_CORPO });
 }
 
 export async function exportarAtaWord(dados: DadosExportacaoAta) {
@@ -133,46 +155,45 @@ export async function exportarAtaWord(dados: DadosExportacaoAta) {
                 }),
               ]
             : []),
-          new Paragraph({ text: TEXTO_INSTITUCIONAL_HISTORICO.linha1, alignment: AlignmentType.CENTER }),
-          new Paragraph({ text: TEXTO_INSTITUCIONAL_HISTORICO.linha2, alignment: AlignmentType.CENTER }),
-          new Paragraph({ text: TEXTO_INSTITUCIONAL_HISTORICO.linha3, alignment: AlignmentType.CENTER }),
-          new Paragraph({ text: TEXTO_INSTITUCIONAL_HISTORICO.linhaDiretoria, alignment: AlignmentType.CENTER }),
-          new Paragraph({ text: TEXTO_INSTITUCIONAL_HISTORICO.linha4, alignment: AlignmentType.CENTER }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(TEXTO_INSTITUCIONAL_HISTORICO.linha1, { bold: true })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(TEXTO_INSTITUCIONAL_HISTORICO.linha2, { bold: true })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(TEXTO_INSTITUCIONAL_HISTORICO.linha3, { bold: true })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(TEXTO_INSTITUCIONAL_HISTORICO.linhaDiretoria, { bold: true })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(TEXTO_INSTITUCIONAL_HISTORICO.linha4, { bold: true })] }),
           new Paragraph({ text: "" }),
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: dados.titulo, bold: true })],
+            children: [txt(dados.titulo, { bold: true, size: TAM_TITULO })],
           }),
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: dados.turmaTitulo, bold: true })],
+            children: [txt(dados.turmaTitulo, { bold: true })],
           }),
           new Paragraph({ text: "" }),
-          new Paragraph({ text: montarAbertura(dados), alignment: AlignmentType.JUSTIFIED }),
-          new Paragraph({ text: dados.corpoNarrativo, alignment: AlignmentType.JUSTIFIED }),
+          new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [txt(montarAbertura(dados))] }),
+          new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [txt(dados.corpoNarrativo)] }),
           new Paragraph({ text: "" }),
-          new Paragraph({ text: montarBlocoClassificacao(dados.ranking), alignment: AlignmentType.JUSTIFIED }),
+          ...montarParagrafosClassificacao(dados.ranking),
           new Paragraph({ text: "" }),
           new Paragraph({
             alignment: AlignmentType.JUSTIFIED,
             children: [
-              new TextRun({ text: TEXTO_LEGAL_ATA_FECHAMENTO }),
-              new TextRun({ text: secretario.nome.toUpperCase(), bold: true }),
-              new TextRun({ text: ` - ${secretario.posto_graduacao}, que secretariei a presente reunião.` }),
+              txt(TEXTO_LEGAL_ATA_FECHAMENTO),
+              txt(`${secretario.nome.toUpperCase()} - ${secretario.posto_graduacao}, que secretariei a presente reunião.`),
             ],
           }),
           new Paragraph({ text: "" }),
           ...membrosOrdenados.flatMap((m) => [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: `${m.nome.toUpperCase()} - ${m.posto_graduacao}` })],
+              children: [txt(`${m.nome.toUpperCase()} - ${m.posto_graduacao}`, { bold: true })],
             }),
-            new Paragraph({ text: m.papel, alignment: AlignmentType.CENTER }),
+            new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(m.papel)] }),
             new Paragraph({ text: "" }),
           ]),
-          new Paragraph({ text: ENDERECO_APMCV.linha1, alignment: AlignmentType.CENTER }),
-          new Paragraph({ text: ENDERECO_APMCV.linha2, alignment: AlignmentType.CENTER }),
-          new Paragraph({ text: ENDERECO_APMCV.linha3, alignment: AlignmentType.CENTER }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(ENDERECO_APMCV.linha1, { bold: true, size: TAM_RODAPE_NOME })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(ENDERECO_APMCV.linha2, { size: TAM_RODAPE_ENDERECO })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(ENDERECO_APMCV.linha3, { size: TAM_RODAPE_ENDERECO })] }),
         ],
       },
     ],
