@@ -39,7 +39,11 @@ import { carregarImagemBrasao } from "@/utils/brasaoImagem";
 
 const BRASAO_PMMT_URL = "/brasao-pmmt-oficial.jpg";
 const BRASAO_MT_URL = "/brasao-mt-oficial.png";
-const BRASAO_APMCV_URL = "/brasao-apmcv-oficial.png";
+// Versão clara (misturada com branco) do brasão da APMCV, só pra usar como
+// marca d'água atrás do texto — a biblioteca de geração de Word não tem
+// controle de opacidade/transparência de imagem, então a única forma de
+// deixar mais claro (como no modelo original) é pré-processar o arquivo.
+const BRASAO_APMCV_MARCA_DAGUA_URL = "/brasao-apmcv-marca-dagua.png";
 const SELO_REPUBLICA_URL = "/selo-republica-federativa.jpg";
 const COR_VERMELHA = "FF0000";
 const PLACEHOLDER = "______";
@@ -110,7 +114,7 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
   const [brasaoMt, brasaoPmmt, brasaoApmcv, seloRepublica] = await Promise.all([
     carregarImagemBrasao(BRASAO_MT_URL),
     carregarImagemBrasao(BRASAO_PMMT_URL),
-    carregarImagemBrasao(BRASAO_APMCV_URL),
+    carregarImagemBrasao(BRASAO_APMCV_MARCA_DAGUA_URL),
     carregarImagemBrasao(SELO_REPUBLICA_URL),
   ]);
   const natural = separarNaturalidade(dados.naturalidade);
@@ -193,104 +197,139 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
     ],
   });
 
-  // --- Verso (página 2) — grade 2x2 com borda ---
+  // --- Verso (página 2) — 5 CAIXAS INDEPENDENTES, não uma tabela 2x2.
+  // Conferido no modelo original: cada bloco é uma caixa com borda própria
+  // e um espaço visível entre elas (não bordas compartilhadas de uma
+  // grade) — 3 caixas empilhadas na coluna esquerda, 2 na direita.
   const bordaFina = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
-  const bordasCaixa = { top: bordaFina, bottom: bordaFina, left: bordaFina, right: bordaFina };
+  const bordaTransparente = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+  const bordasInvisiveis = { top: bordaTransparente, bottom: bordaTransparente, left: bordaTransparente, right: bordaTransparente };
   const p2 = (texto: string, opts: { bold?: boolean } = {}) =>
     new Paragraph({ children: [new TextRun({ text: texto, font: FONTE_VERSO, size: 22, bold: opts.bold })] });
   const p2Vermelho = (texto: string | null) =>
     new Paragraph({ children: [new TextRun({ text: texto && texto.trim() ? texto : PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA })] });
-  const caixa = (children: Paragraph[]) =>
-    new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, margins: { top: 150, bottom: 150, left: 150, right: 150 }, borders: bordasCaixa, children });
 
+  // Uma "caixa" = uma tabela de 1 célula só, com borda própria nos 4 lados —
+  // por isso fica visualmente independente das outras, com espaço em volta.
+  const caixaIndependente = (children: Paragraph[]) =>
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: { top: bordaFina, bottom: bordaFina, left: bordaFina, right: bordaFina },
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              margins: { top: 150, bottom: 150, left: 150, right: 150 },
+              borders: { top: bordaTransparente, bottom: bordaTransparente, left: bordaTransparente, right: bordaTransparente },
+              children,
+            }),
+          ],
+        }),
+      ],
+    });
+  const espaco = () => new Paragraph({ spacing: { before: 160, after: 160 }, children: [] });
+
+  const caixaEnsinoMilitar = caixaIndependente([
+    p2("Ensino Militar – Autonomia", { bold: true }),
+    p2("Art. 83 da Lei nº 9394, de 20 Dez 96 (LDB) (DOU nº 248, de 23 Dez 96). LC nº 408, de 01 Jul 10 (Lei de Ensino da PMMT) (DOE nº 25348, 01 Jul 10)."),
+  ]);
+  const caixaAcademiaCriacao = caixaIndependente([
+    p2("Academia de Polícia Militar Costa Verde", { bold: true }),
+    p2("Criação: Lei nº 5177 de 27 Nov 87 (DOE nº 19.831, de 27 Nov 87)."),
+    p2("Ativação: Decreto nº 3145 de 06 Jul 93 (DOE nº 21.202, de 06 Jul 93)."),
+    p2("Credenciamento IES: Art. 3º do Decreto nº 3144, de 06 Jul 93 (DOE nº 21.202, de 06 Jul 93); Art. 1º da Port. Conj. nº. 07/SECITEC/SESP de 06 Mar 12 (DOE nº 25764, de 15 Mar 12)."),
+  ]);
+  const caixaCursoFormacao = caixaIndependente([
+    p2("Curso de Formação de Oficiais", { bold: true }),
+    p2("Inciso III, Art. 10 da Lei Complementar nº 408, de 01 Jul 10 (LEPM) (DOE nº 25348 de 01 Jul 10)."),
+    p2("Reconhecimento/Equivalência", { bold: true }),
+    p2("Parecer nº 049 de 22 Dez 00 - C.E.E/MT."),
+    p2("Modalidade Bacharel em Segurança Pública", { bold: true }),
+    p2("Parecer nº 428 de 09 Dez 03 - C.E.E/MT."),
+    p2("Trabalho de Conclusão de Curso", { bold: true }),
+    p2Vermelho(dados.temaTcc),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "Monografia apresentada ", font: FONTE_VERSO, size: 22, bold: true }),
+        new TextRun({ text: dados.dataApresentacaoTcc ?? PLACEHOLDER, font: FONTE_VERSO, size: 22, bold: true, color: dados.dataApresentacaoTcc ? undefined : COR_VERMELHA }),
+        new TextRun({ text: ", Nota ", font: FONTE_VERSO, size: 22, bold: true }),
+        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, bold: true, color: COR_VERMELHA }),
+        new TextRun({ text: ".", font: FONTE_VERSO, size: 22, bold: true }),
+      ],
+    }),
+  ]);
+  const caixaDiplomaRegistrado = caixaIndependente([
+    p2("Academia de Polícia Militar Costa Verde", { bold: true }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "Diploma registrado sob o nº ", font: FONTE_VERSO, size: 22 }),
+        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+        new TextRun({ text: ", do Livro nº ", font: FONTE_VERSO, size: 22 }),
+        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+        new TextRun({ text: ", folha nº ", font: FONTE_VERSO, size: 22 }),
+        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+        new TextRun({ text: ". Processo nº ", font: FONTE_VERSO, size: 22 }),
+        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+        new TextRun({ text: ".", font: FONTE_VERSO, size: 22 }),
+      ],
+    }),
+    p2(""),
+    p2(`Quartel da APMCV, em Várzea Grande-MT, ${dados.dataEmissao}.`),
+    p2(""),
+    p2("_________________________________"),
+    new Paragraph({
+      children: [
+        vermelho(dados.responsavelNome, { size: 22, font: FONTE_VERSO }),
+        new TextRun({ text: " – ", font: FONTE_VERSO, size: 22 }),
+        vermelho(dados.responsavelPosto, { size: 22, font: FONTE_VERSO }),
+      ],
+    }),
+    p2("Gerente Subalterno da Secretaria de Registros/APM"),
+  ]);
+  const caixaApostilamento = caixaIndependente([
+    p2("Diretoria de Ensino, Instrução e Pesquisa/PMMT", { bold: true }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "Registro de Apostilamento sob nº ", font: FONTE_VERSO, size: 22 }),
+        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+        new TextRun({ text: ", do Livro nº ", font: FONTE_VERSO, size: 22 }),
+        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+        new TextRun({ text: ", folha nº ", font: FONTE_VERSO, size: 22 }),
+        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+        new TextRun({ text: ". Processo nº ", font: FONTE_VERSO, size: 22 }),
+        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+        new TextRun({ text: ".", font: FONTE_VERSO, size: 22 }),
+      ],
+    }),
+    p2(""),
+    p2(`DEIP/PMMT, em Cuiabá-MT, ${dados.dataEmissao}.`),
+    p2(""),
+    p2("_________________________________"),
+    p2Vermelho(null),
+    p2("Diretor da DEIP"),
+  ]);
+
+  // Container externo sem borda, só pra criar as 2 colunas — cada coluna
+  // tem sua pilha própria de caixas independentes (3 à esquerda, 2 à
+  // direita), com espaço entre elas.
   const grade = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: { top: bordaFina, bottom: bordaFina, left: bordaFina, right: bordaFina, insideHorizontal: bordaFina, insideVertical: bordaFina },
+    borders: SEM_BORDA,
     rows: [
       new TableRow({
         children: [
-          caixa([
-            p2("Ensino Militar – Autonomia", { bold: true }),
-            p2("Art. 83 da Lei nº 9394, de 20 Dez 96 (LDB) (DOU nº 248, de 23 Dez 96). LC nº 408, de 01 Jul 10 (Lei de Ensino da PMMT) (DOE nº 25348, 01 Jul 10)."),
-            p2(""),
-            p2("Academia de Polícia Militar Costa Verde", { bold: true }),
-            p2("Criação: Lei nº 5177 de 27 Nov 87 (DOE nº 19.831, de 27 Nov 87)."),
-            p2("Ativação: Decreto nº 3145 de 06 Jul 93 (DOE nº 21.202, de 06 Jul 93)."),
-            p2("Credenciamento IES: Art. 3º do Decreto nº 3144, de 06 Jul 93 (DOE nº 21.202, de 06 Jul 93); Art. 1º da Port. Conj. nº. 07/SECITEC/SESP de 06 Mar 12 (DOE nº 25764, de 15 Mar 12)."),
-          ]),
-          caixa([
-            p2("Academia de Polícia Militar Costa Verde", { bold: true }),
-            new Paragraph({
-              children: [
-                new TextRun({ text: "Diploma registrado sob o nº ", font: FONTE_VERSO, size: 22 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
-                new TextRun({ text: ", do Livro nº ", font: FONTE_VERSO, size: 22 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
-                new TextRun({ text: ", folha nº ", font: FONTE_VERSO, size: 22 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
-                new TextRun({ text: ". Processo nº ", font: FONTE_VERSO, size: 22 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
-                new TextRun({ text: ".", font: FONTE_VERSO, size: 22 }),
-              ],
-            }),
-            p2(""),
-            p2(`Quartel da APMCV, em Várzea Grande-MT, ${dados.dataEmissao}.`),
-            p2(""),
-            p2("_________________________________"),
-            new Paragraph({
-              children: [
-                vermelho(dados.responsavelNome, { size: 22, font: FONTE_VERSO }),
-                new TextRun({ text: " – ", font: FONTE_VERSO, size: 22 }),
-                vermelho(dados.responsavelPosto, { size: 22, font: FONTE_VERSO }),
-              ],
-            }),
-            p2("Gerente Subalterno da Secretaria de Registros/APM"),
-          ]),
-        ],
-      }),
-      new TableRow({
-        children: [
-          caixa([
-            p2("Curso de Formação de Oficiais", { bold: true }),
-            p2("Inciso III, Art. 10 da Lei Complementar nº 408, de 01 Jul 10 (LEPM) (DOE nº 25348 de 01 Jul 10)."),
-            p2("Reconhecimento/Equivalência", { bold: true }),
-            p2("Parecer nº 049 de 22 Dez 00 - C.E.E/MT."),
-            p2("Modalidade Bacharel em Segurança Pública", { bold: true }),
-            p2("Parecer nº 428 de 09 Dez 03 - C.E.E/MT."),
-            p2("Trabalho de Conclusão de Curso", { bold: true }),
-            p2Vermelho(dados.temaTcc),
-            new Paragraph({
-              children: [
-                new TextRun({ text: "Monografia apresentada ", font: FONTE_VERSO, size: 22, bold: true }),
-                new TextRun({ text: dados.dataApresentacaoTcc ?? PLACEHOLDER, font: FONTE_VERSO, size: 22, bold: true, color: dados.dataApresentacaoTcc ? undefined : COR_VERMELHA }),
-                new TextRun({ text: ", Nota ", font: FONTE_VERSO, size: 22, bold: true }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, bold: true, color: COR_VERMELHA }),
-                new TextRun({ text: ".", font: FONTE_VERSO, size: 22, bold: true }),
-              ],
-            }),
-          ]),
-          caixa([
-            p2("Diretoria de Ensino, Instrução e Pesquisa/PMMT", { bold: true }),
-            new Paragraph({
-              children: [
-                new TextRun({ text: "Registro de Apostilamento sob nº ", font: FONTE_VERSO, size: 22 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
-                new TextRun({ text: ", do Livro nº ", font: FONTE_VERSO, size: 22 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
-                new TextRun({ text: ", folha nº ", font: FONTE_VERSO, size: 22 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
-                new TextRun({ text: ". Processo nº ", font: FONTE_VERSO, size: 22 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
-                new TextRun({ text: ".", font: FONTE_VERSO, size: 22 }),
-              ],
-            }),
-            p2(""),
-            p2(`DEIP/PMMT, em Cuiabá-MT, ${dados.dataEmissao}.`),
-            p2(""),
-            p2("_________________________________"),
-            p2Vermelho(null),
-            p2("Diretor da DEIP"),
-          ]),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            margins: { top: 0, bottom: 0, left: 0, right: 100 },
+            borders: bordasInvisiveis,
+            children: [caixaEnsinoMilitar, espaco(), caixaAcademiaCriacao, espaco(), caixaCursoFormacao],
+          }),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            margins: { top: 0, bottom: 0, left: 100, right: 0 },
+            borders: bordasInvisiveis,
+            children: [caixaDiplomaRegistrado, espaco(), caixaApostilamento],
+          }),
         ],
       }),
     ],
@@ -315,10 +354,14 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
             margin: { top: 567, bottom: 567, left: 851, right: 851 },
             borders: {
               pageBorders: { display: PageBorderDisplay.ALL_PAGES, offsetFrom: PageBorderOffsetFrom.TEXT },
-              pageBorderTop: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
-              pageBorderBottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
-              pageBorderLeft: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
-              pageBorderRight: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+              // "space" = distância entre a borda e o texto, em pontos —
+              // conferido no XML do modelo: 4pt em cima/embaixo, mas 18pt
+              // nas laterais (bem mais afastado do texto do que eu tinha
+              // colocado antes, que não tinha "space" nenhum).
+              pageBorderTop: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 4 },
+              pageBorderBottom: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 4 },
+              pageBorderLeft: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 18 },
+              pageBorderRight: { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 18 },
             },
           },
         },
