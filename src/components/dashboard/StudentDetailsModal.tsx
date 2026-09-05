@@ -21,6 +21,7 @@ import {
   montarDisciplinasHistorico,
   DadosExportacaoHistorico,
 } from "@/utils/exportHistorico";
+import { exportarDiplomaWord, DadosExportacaoDiploma } from "@/utils/exportDiploma";
 import { useDadosBiograficosAluno } from "@/hooks/useDadosBiograficosAluno";
 import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
@@ -66,6 +67,7 @@ export function StudentDetailsModal({
   const [historicoFormato, setHistoricoFormato] = useState<"word" | null>(null);
   const [historicoAlunoId, setHistoricoAlunoId] = useState<string | null>(null);
   const [gerandoHistorico, setGerandoHistorico] = useState(false);
+  const [gerandoDiploma, setGerandoDiploma] = useState(false);
   const { dados: bioAluno, loading: carregandoBio } = useDadosBiograficosAluno(historicoAlunoId);
   if (!student) return null;
 
@@ -203,6 +205,61 @@ export function StudentDetailsModal({
     setHistoricoFormato(null);
   }
 
+  async function gerarDiploma() {
+    if (!student) return;
+    const alunoId = (student as AlunoModulo).aluno_id;
+    setGerandoDiploma(true);
+    try {
+      const [{ data: bio }, { data: comissaoGeral }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "nome_completo, filiacao_pai, filiacao_mae, rg_pm, data_nascimento, naturalidade, tema_tcc, data_apresentacao_tcc, turma_id"
+          )
+          .eq("id", alunoId)
+          .single(),
+        supabase
+          .from("comissoes_encerramento")
+          .select("data_reuniao, turma_id")
+          .eq("tipo_ata", "ata_classificacao_geral")
+          .order("criado_em", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      if (!bio) {
+        toast({ title: "Não foi possível carregar os dados do aluno", variant: "destructive" });
+        return;
+      }
+      const dataConclusao =
+        comissaoGeral?.turma_id === bio.turma_id && comissaoGeral?.data_reuniao
+          ? dataPorExtenso(new Date(comissaoGeral.data_reuniao + "T00:00:00"))
+          : null;
+      const dados: DadosExportacaoDiploma = {
+        nomeAluno: bio.nome_completo,
+        filiacaoPai: bio.filiacao_pai,
+        filiacaoMae: bio.filiacao_mae,
+        rgPm: bio.rg_pm,
+        dataNascimento: bio.data_nascimento
+          ? new Date(bio.data_nascimento).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+          : null,
+        naturalidade: bio.naturalidade,
+        temaTcc: bio.tema_tcc,
+        dataApresentacaoTcc: bio.data_apresentacao_tcc
+          ? dataPorExtenso(new Date(bio.data_apresentacao_tcc + "T00:00:00"))
+          : null,
+        dataConclusaoCurso: dataConclusao,
+        comandanteNome: config.comandante_apmcv_nome,
+        comandantePosto: config.comandante_apmcv_posto,
+        responsavelNome: config.responsavel_assinatura_nome,
+        responsavelPosto: config.responsavel_assinatura_posto,
+        dataEmissao: dataPorExtenso(new Date()),
+      };
+      await exportarDiplomaWord(dados);
+    } finally {
+      setGerandoDiploma(false);
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -243,6 +300,16 @@ export function StudentDetailsModal({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              )}
+              {isAdmin && daGeral && (
+                <Button variant="outline" size="sm" onClick={gerarDiploma} disabled={gerandoDiploma}>
+                  {gerandoDiploma ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-1" />
+                  )}
+                  Gerar Diploma
+                </Button>
               )}
               {podeExportarRelatorioIndividual && (
                 <DropdownMenu>
