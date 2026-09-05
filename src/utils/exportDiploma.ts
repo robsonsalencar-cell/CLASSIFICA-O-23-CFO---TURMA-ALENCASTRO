@@ -176,20 +176,24 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
             width: { size: 35, type: WidthType.PERCENTAGE },
             borders: { top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } },
             children: [
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("________________", { size: 36 })] }),
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("Bacharel", { size: 36 })] }),
+              // Alinhado à esquerda (não centralizado na célula) para ficar
+              // mais próximo da margem esquerda, igual ao modelo original.
+              new Paragraph({ alignment: AlignmentType.LEFT, children: [txt("________________", { size: 36 })] }),
+              new Paragraph({ alignment: AlignmentType.LEFT, children: [txt("Bacharel", { size: 36 })] }),
             ],
           }),
           new TableCell({
             width: { size: 65, type: WidthType.PERCENTAGE },
             borders: { top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } },
             children: [
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("_______________________________", { size: 36 })] }),
+              // Alinhado à direita (não centralizado na célula) para ficar
+              // mais próximo da margem direita, igual ao modelo original.
+              new Paragraph({ alignment: AlignmentType.RIGHT, children: [txt("_______________________________", { size: 36 })] }),
               new Paragraph({
-                alignment: AlignmentType.CENTER,
+                alignment: AlignmentType.RIGHT,
                 children: [vermelho(dados.comandanteNome, { size: 35 }), txt(" - ", { size: 35 }), vermelho(dados.comandantePosto, { size: 35 })],
               }),
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("Comandante da APMCV", { size: 32 })] }),
+              new Paragraph({ alignment: AlignmentType.RIGHT, children: [txt("Comandante da APMCV", { size: 32 })] }),
             ],
           }),
         ],
@@ -220,7 +224,15 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
           children: [
             new TableCell({
               margins: { top: 150, bottom: 150, left: 150, right: 150 },
-              borders: { top: bordaTransparente, bottom: bordaTransparente, left: bordaTransparente, right: bordaTransparente },
+              // IMPORTANTE: não sobrescrever a borda da célula aqui. Cada
+              // caixa agora é uma tabela de 1 célula só (não mais uma
+              // grade 2x2 com bordas compartilhadas) — se a célula
+              // definir sua própria borda como "invisível", isso ANULA a
+              // borda da tabela (borda de célula tem prioridade sobre a
+              // borda da tabela na especificação OOXML). O Word aplica
+              // essa prioridade à risca e a borda simplesmente some; o
+              // LibreOffice é mais tolerante e mostrava a borda mesmo
+              // assim, por isso o bug só aparecia no Word real.
               children,
             }),
           ],
