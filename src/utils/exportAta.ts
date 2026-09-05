@@ -171,7 +171,14 @@ export async function exportarAtaWord(dados: DadosExportacaoAta) {
           }),
           new Paragraph({ text: "" }),
           new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [txt(montarAbertura(dados))] }),
-          new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [txt(dados.corpoNarrativo)] }),
+          // corpoNarrativo pode vir com várias quebras de linha (um parágrafo
+          // por evento, igual ao modelo original) — cada uma vira seu próprio
+          // parágrafo no Word, em vez de tudo virar um bloco único.
+          ...dados.corpoNarrativo
+            .split(/\n+/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((paragrafo) => new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [txt(paragrafo)] })),
           new Paragraph({ text: "" }),
           ...montarParagrafosClassificacao(dados.ranking),
           new Paragraph({ text: "" }),

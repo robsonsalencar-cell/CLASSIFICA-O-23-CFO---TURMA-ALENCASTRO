@@ -40,6 +40,7 @@ import { carregarImagemBrasao } from "@/utils/brasaoImagem";
 
 const BRASAO_PMMT_URL = "/brasao-pmmt-oficial.jpg";
 const BRASAO_APMCV_URL = "/brasao-apmcv-oficial.png";
+const SELO_REPUBLICA_URL = "/selo-republica-federativa.jpg";
 const COR_VERMELHA = "FF0000";
 const PLACEHOLDER = "______";
 
@@ -106,9 +107,10 @@ function vermelho(valor: string | null, opts: { size: number; font?: string }): 
 const SEM_BORDA = TableBorders.NONE;
 
 export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
-  const [brasaoPmmt, brasaoApmcv] = await Promise.all([
+  const [brasaoPmmt, brasaoApmcv, seloRepublica] = await Promise.all([
     carregarImagemBrasao(BRASAO_PMMT_URL),
     carregarImagemBrasao(BRASAO_APMCV_URL),
+    carregarImagemBrasao(SELO_REPUBLICA_URL),
   ]);
   const natural = separarNaturalidade(dados.naturalidade);
 
@@ -294,6 +296,12 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
             // então aqui passamos os valores "de retrato" (11906x16838) —
             // passar já invertido cancela a inversão e volta pra retrato.
             size: { orientation: PageOrientation.LANDSCAPE, width: 11906, height: 16838 },
+            // Margens do modelo original (conferidas no XML: 360045x540385
+            // EMU = 567x851 twips) — bem mais justas que o padrão do Word
+            // (1 polegada). Sem isso, o conteúdo real (com nomes/temas de
+            // TCC mais longos que o exemplo do modelo) estourava pra 3
+            // páginas em vez de 2.
+            margin: { top: 567, bottom: 567, left: 851, right: 851 },
             borders: {
               pageBorders: { display: PageBorderDisplay.ALL_PAGES, offsetFrom: PageBorderOffsetFrom.TEXT },
               pageBorderTop: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
@@ -346,7 +354,30 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
           new Paragraph({ text: "" }),
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [txt("Várzea Grande - MT, ", { size: 36 }), vermelho(dados.dataEmissao, { size: 36 }), txt(".", { size: 36 })],
+            children: [
+              // Selo da República — no modelo original fica ATRÁS do texto
+              // (behindDocument), como marca d'água, ancorado nesta mesma
+              // linha ("Várzea Grande - MT, ...").
+              ...(seloRepublica
+                ? [
+                    new ImageRun({
+                      data: seloRepublica.bytes,
+                      type: seloRepublica.formato,
+                      transformation: { width: 126, height: 126 },
+                      floating: {
+                        horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 4800600 },
+                        verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: 331470 },
+                        wrap: { type: TextWrappingType.NONE },
+                        allowOverlap: true,
+                        behindDocument: true,
+                      },
+                    }),
+                  ]
+                : []),
+              txt("Várzea Grande - MT, ", { size: 36 }),
+              vermelho(dados.dataEmissao, { size: 36 }),
+              txt(".", { size: 36 }),
+            ],
           }),
           new Paragraph({ text: "" }),
           new Paragraph({ text: "" }),

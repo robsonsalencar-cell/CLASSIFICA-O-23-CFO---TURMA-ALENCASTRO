@@ -22,6 +22,7 @@ import {
   DadosExportacaoHistorico,
 } from "@/utils/exportHistorico";
 import { exportarDiplomaWord, DadosExportacaoDiploma } from "@/utils/exportDiploma";
+import { formatarRgPm } from "@/utils/formatadores";
 import { useDadosBiograficosAluno } from "@/hooks/useDadosBiograficosAluno";
 import { MATERIAS_CFO1 } from "@/config/materiasCfo1";
 import { MATERIAS_CFO2 } from "@/config/materiasCfo2";
@@ -177,7 +178,7 @@ export function StudentDetailsModal({
       naturalidade: bioAluno.naturalidade,
       matricula: bioAluno.matricula,
       matriculaAcademia: bioAluno.matricula_academia,
-      rgPm: bioAluno.rg_pm,
+      rgPm: formatarRgPm(bioAluno.rg_pm),
       escolaAnterior: bioAluno.escola_anterior,
       anoConclusaoEnsinoMedio: bioAluno.ano_conclusao_ensino_medio,
       grauConcluido: bioAluno.grau_concluido,
@@ -240,7 +241,7 @@ export function StudentDetailsModal({
         nomeAluno: bio.nome_completo,
         filiacaoPai: bio.filiacao_pai,
         filiacaoMae: bio.filiacao_mae,
-        rgPm: bio.rg_pm,
+        rgPm: formatarRgPm(bio.rg_pm),
         dataNascimento: bio.data_nascimento
           ? new Date(bio.data_nascimento).toLocaleDateString("pt-BR", { timeZone: "UTC" })
           : null,
