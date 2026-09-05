@@ -165,50 +165,33 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
     new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("ACADEMIA DE POLÍCIA MILITAR COSTA VERDE", { size: 34, font: FONTE_TITULO })] }),
   ];
 
-  // Assinaturas da frente: Bacharel (o próprio formando) | espaço | Comandante da APMCV
-  //
-  // Três colunas em vez de duas: uma coluna vazia no meio empurra o bloco do
-  // Bacharel pra zona esquerda da página e o do Comandante pra zona direita
-  // (mantendo a posição que já ficou boa), mas cada bloco fica CENTRALIZADO
-  // dentro da própria coluna (não alinhado à direita/esquerda) — assim as
-  // duas linhas do Comandante ficam centralizadas uma em relação à outra,
-  // sem precisar deslocar o texto pra fora da posição já aprovada.
-  const bordaInvisivelCelula = { top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }, right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" } };
-  const linhaAssinaturasFrente = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: SEM_BORDA,
-    rows: [
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 30, type: WidthType.PERCENTAGE },
-            borders: bordaInvisivelCelula,
-            children: [
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("________________", { size: 36 })] }),
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("Bacharel", { size: 36 })] }),
-            ],
-          }),
-          new TableCell({
-            width: { size: 10, type: WidthType.PERCENTAGE },
-            borders: bordaInvisivelCelula,
-            children: [new Paragraph({ children: [] })],
-          }),
-          new TableCell({
-            width: { size: 60, type: WidthType.PERCENTAGE },
-            borders: bordaInvisivelCelula,
-            children: [
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("_______________________________", { size: 36 })] }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [vermelho(dados.comandanteNome, { size: 35 }), txt(" - ", { size: 35 }), vermelho(dados.comandantePosto, { size: 35 })],
-              }),
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("Comandante da APMCV", { size: 32 })] }),
-            ],
-          }),
-        ],
-      }),
-    ],
-  });
+  // Assinaturas da frente: réplica exata do modelo original — descobri
+  // inspecionando o XML do .doc real que essa linha NÃO é uma tabela com
+  // alinhamento nenhum: são 3 parágrafos soltos, cada um com espaços
+  // literais digitados na MESMA fonte/tamanho do corpo (Old English Text
+  // MT), sem "w:jc" de centralizar/direita — a posição de cada trecho vem
+  // só da largura acumulada dos espaços/caracteres anteriores nessa fonte.
+  // Reproduzindo os mesmos espaços na mesma fonte, a posição fica idêntica
+  // à do original (contei os espaços exatos por script no XML):
+  //   linha 1: 9 espaços(10pt) + 16 "_"(18pt) + 58 espaços + 35 "_" + 6 espaços
+  //   linha 2: 14 espaços + "Bacharel" + 68 espaços + nome(vermelho,17,5pt) + "-" + posto(vermelho,17,5pt)
+  //   linha 3: 123 espaços(16pt) + "Comandante da APMCV"(16pt)
+  const esp = (n: number, tamanho: number) => txt(" ".repeat(n), { size: tamanho });
+  const linhaAssinaturasFrente = [
+    new Paragraph({
+      children: [esp(9, 20), txt("_".repeat(16), { size: 36 }), esp(58, 36), txt("_".repeat(35), { size: 36 }), esp(6, 36)],
+    }),
+    new Paragraph({
+      children: [
+        esp(14, 36),
+        txt(`Bacharel${" ".repeat(68)}`, { size: 36 }),
+        vermelho(dados.comandanteNome, { size: 35 }),
+        txt("-", { size: 35 }),
+        vermelho(dados.comandantePosto, { size: 35 }),
+      ],
+    }),
+    new Paragraph({ children: [esp(123, 32), txt("Comandante da APMCV", { size: 32 })] }),
+  ];
 
   // --- Verso (página 2) — 5 CAIXAS INDEPENDENTES, não uma tabela 2x2.
   // Conferido no modelo original: cada bloco é uma caixa com borda própria
@@ -456,7 +439,7 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
           }),
           new Paragraph({ text: "" }),
           new Paragraph({ text: "" }),
-          linhaAssinaturasFrente,
+          ...linhaAssinaturasFrente,
           new Paragraph({ children: [new PageBreak()] }),
           grade,
         ],
