@@ -440,7 +440,7 @@ export function AdminUsersPanel() {
                                 onChange={(e) => setEdicao({ ...edicao, role: e.target.value as AppRole })}
                               >
                                 <option value="aluno">Aluno</option>
-                                <option value="admin">Administrador</option>
+                                <option value="admin">Aluno-Auxiliar</option>
                                 <option value="admin_institucional">Admin institucional</option>
                                 <option value="visitante">Visitante</option>
                               </select>
@@ -480,7 +480,7 @@ export function AdminUsersPanel() {
                                   : p.role === "admin_institucional"
                                   ? "Admin institucional"
                                   : p.role === "admin"
-                                  ? "Administrador"
+                                  ? "Aluno-Auxiliar"
                                   : p.role === "visitante"
                                   ? "Visitante"
                                   : "Aluno"}
@@ -576,7 +576,7 @@ export function AdminUsersPanel() {
                 onChange={(e) => setRole(e.target.value as AppRole)}
               >
                 <option value="aluno">Aluno</option>
-                <option value="admin">Administrador</option>
+                <option value="admin">Aluno-Auxiliar</option>
                 <option value="visitante">Visitante (só visualiza ranking)</option>
               </select>
             </div>

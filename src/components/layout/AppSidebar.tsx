@@ -193,7 +193,15 @@ export function AppSidebar() {
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">{profile?.nome_completo}</p>
             <Badge variant={isDeveloper ? "default" : isAdmin ? "secondary" : "secondary"} className="text-[10px]">
-              {isDeveloper ? "Desenvolvedor" : isAdmin ? "Administrador" : "Aluno"}
+              {isDeveloper
+                ? "Desenvolvedor"
+                : profile?.role === "admin_institucional"
+                ? "Admin Institucional"
+                : profile?.role === "admin"
+                ? "Aluno-Auxiliar"
+                : profile?.role === "visitante"
+                ? "Visitante"
+                : "Aluno"}
             </Badge>
           </div>
           <Trophy className="w-4 h-4 text-primary shrink-0" />

@@ -48,7 +48,13 @@ export default function Perfil() {
           <p className="text-foreground font-medium">{profile?.nome_completo}</p>
           <p className="text-sm text-muted-foreground">{profile?.email}</p>
           <Badge variant={isAdmin ? "default" : "secondary"}>
-            {isAdmin ? "Administrador" : "Aluno"}
+            {profile?.role === "desenvolvedor"
+              ? "Desenvolvedor"
+              : profile?.role === "admin_institucional"
+              ? "Admin Institucional"
+              : profile?.role === "admin"
+              ? "Aluno-Auxiliar"
+              : "Aluno"}
           </Badge>
         </CardContent>
       </Card>
