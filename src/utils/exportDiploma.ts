@@ -14,7 +14,6 @@ import {
   PageBorderOffsetFrom,
   TableBorders,
   PageBreak,
-  HorizontalPositionAlign,
   HorizontalPositionRelativeFrom,
   VerticalPositionRelativeFrom,
   TextWrappingType,
@@ -39,6 +38,7 @@ import { carregarImagemBrasao } from "@/utils/brasaoImagem";
 // ============================================================
 
 const BRASAO_PMMT_URL = "/brasao-pmmt-oficial.jpg";
+const BRASAO_MT_URL = "/brasao-mt-oficial.png";
 const BRASAO_APMCV_URL = "/brasao-apmcv-oficial.png";
 const SELO_REPUBLICA_URL = "/selo-republica-federativa.jpg";
 const COR_VERMELHA = "FF0000";
@@ -107,30 +107,40 @@ function vermelho(valor: string | null, opts: { size: number; font?: string }): 
 const SEM_BORDA = TableBorders.NONE;
 
 export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
-  const [brasaoPmmt, brasaoApmcv, seloRepublica] = await Promise.all([
+  const [brasaoMt, brasaoPmmt, brasaoApmcv, seloRepublica] = await Promise.all([
+    carregarImagemBrasao(BRASAO_MT_URL),
     carregarImagemBrasao(BRASAO_PMMT_URL),
     carregarImagemBrasao(BRASAO_APMCV_URL),
     carregarImagemBrasao(SELO_REPUBLICA_URL),
   ]);
   const natural = separarNaturalidade(dados.naturalidade);
 
-  // Os 2 brasões ficam ANCORADOS nos cantos superiores (flutuantes, fora do
-  // fluxo do texto) — não numa tabela — porque o cabeçalho ocupa a largura
-  // toda da página no modelo original; colocá-los numa tabela de 3 colunas
-  // espremia o texto e fazia tudo quebrar em várias linhas (estourando de 2
-  // pra 4 páginas na primeira tentativa).
-  const imagemAncorada = (img: typeof brasaoPmmt, lado: (typeof HorizontalPositionAlign)[keyof typeof HorizontalPositionAlign]) =>
+  // As 3 imagens da frente (brasão de MT à esquerda, brasão da PMMT à
+  // direita, e o brasão grande da APMCV como marca d'água atrás do corpo do
+  // texto) ficam ANCORADAS — behindDoc, sem quebra de texto — com os MESMOS
+  // deslocamentos (em EMU, relativos à "coluna") conferidos no XML do
+  // modelo original. Como nossa página usa a mesma largura e as mesmas
+  // margens do modelo (conferidas antes), a largura da "coluna" bate exata,
+  // então os números do original podem ser reaproveitados direto, sem
+  // conversão. Descoberta em 05/09/2026: o brasão da esquerda é o do
+  // ESTADO DE MATO GROSSO (não da PMMT como eu tinha colocado antes), e o
+  // brasão da APMCV nunca era um logo pequeno de canto — é a marca d'água
+  // grande atrás do título/corpo, que também tinha ficado de fora.
+  const imagemFundo = (
+    img: typeof brasaoMt,
+    opts: { offsetH: number; offsetV: number; width: number; height: number }
+  ) =>
     img
       ? new ImageRun({
           data: img.bytes,
           type: img.formato,
-          transformation: { width: 75, height: 75 },
+          transformation: { width: opts.width, height: opts.height },
           floating: {
-            horizontalPosition: { relative: HorizontalPositionRelativeFrom.MARGIN, align: lado },
-            verticalPosition: { relative: VerticalPositionRelativeFrom.MARGIN, offset: 150000 },
-            wrap: { type: TextWrappingType.SQUARE },
-            allowOverlap: false,
-            margins: { left: 100000, right: 100000 },
+            horizontalPosition: { relative: HorizontalPositionRelativeFrom.COLUMN, offset: opts.offsetH },
+            verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: opts.offsetV },
+            wrap: { type: TextWrappingType.NONE },
+            allowOverlap: true,
+            behindDocument: true,
           },
         })
       : null;
@@ -139,8 +149,9 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [
-        ...(brasaoPmmt ? [imagemAncorada(brasaoPmmt, HorizontalPositionAlign.LEFT)!] : []),
-        ...(brasaoApmcv ? [imagemAncorada(brasaoApmcv, HorizontalPositionAlign.RIGHT)!] : []),
+        ...(brasaoMt ? [imagemFundo(brasaoMt, { offsetH: 40640, offsetV: 59055, width: 116, height: 113 })!] : []),
+        ...(brasaoPmmt ? [imagemFundo(brasaoPmmt, { offsetH: 8491220, offsetV: 106680, width: 102, height: 113 })!] : []),
+        ...(brasaoApmcv ? [imagemFundo(brasaoApmcv, { offsetH: 2583815, offsetV: 153035, width: 435, height: 419 })!] : []),
         txt("ESTADO DE MATO GROSSO", { size: 34, font: FONTE_TITULO }),
       ],
     }),
@@ -186,9 +197,9 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
   const bordaFina = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
   const bordasCaixa = { top: bordaFina, bottom: bordaFina, left: bordaFina, right: bordaFina };
   const p2 = (texto: string, opts: { bold?: boolean } = {}) =>
-    new Paragraph({ children: [new TextRun({ text: texto, font: FONTE_VERSO, size: 18, bold: opts.bold })] });
+    new Paragraph({ children: [new TextRun({ text: texto, font: FONTE_VERSO, size: 22, bold: opts.bold })] });
   const p2Vermelho = (texto: string | null) =>
-    new Paragraph({ children: [new TextRun({ text: texto && texto.trim() ? texto : PLACEHOLDER, font: FONTE_VERSO, size: 18, color: COR_VERMELHA })] });
+    new Paragraph({ children: [new TextRun({ text: texto && texto.trim() ? texto : PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA })] });
   const caixa = (children: Paragraph[]) =>
     new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, margins: { top: 150, bottom: 150, left: 150, right: 150 }, borders: bordasCaixa, children });
 
@@ -211,15 +222,15 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
             p2("Academia de Polícia Militar Costa Verde", { bold: true }),
             new Paragraph({
               children: [
-                new TextRun({ text: "Diploma registrado sob o nº ", font: FONTE_VERSO, size: 18 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 18, color: COR_VERMELHA }),
-                new TextRun({ text: ", do Livro nº ", font: FONTE_VERSO, size: 18 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 18, color: COR_VERMELHA }),
-                new TextRun({ text: ", folha nº ", font: FONTE_VERSO, size: 18 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 18, color: COR_VERMELHA }),
-                new TextRun({ text: ". Processo nº ", font: FONTE_VERSO, size: 18 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 18, color: COR_VERMELHA }),
-                new TextRun({ text: ".", font: FONTE_VERSO, size: 18 }),
+                new TextRun({ text: "Diploma registrado sob o nº ", font: FONTE_VERSO, size: 22 }),
+                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+                new TextRun({ text: ", do Livro nº ", font: FONTE_VERSO, size: 22 }),
+                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+                new TextRun({ text: ", folha nº ", font: FONTE_VERSO, size: 22 }),
+                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+                new TextRun({ text: ". Processo nº ", font: FONTE_VERSO, size: 22 }),
+                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+                new TextRun({ text: ".", font: FONTE_VERSO, size: 22 }),
               ],
             }),
             p2(""),
@@ -228,9 +239,9 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
             p2("_________________________________"),
             new Paragraph({
               children: [
-                vermelho(dados.responsavelNome, { size: 18, font: FONTE_VERSO }),
-                new TextRun({ text: " – ", font: FONTE_VERSO, size: 18 }),
-                vermelho(dados.responsavelPosto, { size: 18, font: FONTE_VERSO }),
+                vermelho(dados.responsavelNome, { size: 22, font: FONTE_VERSO }),
+                new TextRun({ text: " – ", font: FONTE_VERSO, size: 22 }),
+                vermelho(dados.responsavelPosto, { size: 22, font: FONTE_VERSO }),
               ],
             }),
             p2("Gerente Subalterno da Secretaria de Registros/APM"),
@@ -250,11 +261,11 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
             p2Vermelho(dados.temaTcc),
             new Paragraph({
               children: [
-                new TextRun({ text: "Monografia apresentada ", font: FONTE_VERSO, size: 18, bold: true }),
-                new TextRun({ text: dados.dataApresentacaoTcc ?? PLACEHOLDER, font: FONTE_VERSO, size: 18, bold: true, color: dados.dataApresentacaoTcc ? undefined : COR_VERMELHA }),
-                new TextRun({ text: ", Nota ", font: FONTE_VERSO, size: 18, bold: true }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 18, bold: true, color: COR_VERMELHA }),
-                new TextRun({ text: ".", font: FONTE_VERSO, size: 18, bold: true }),
+                new TextRun({ text: "Monografia apresentada ", font: FONTE_VERSO, size: 22, bold: true }),
+                new TextRun({ text: dados.dataApresentacaoTcc ?? PLACEHOLDER, font: FONTE_VERSO, size: 22, bold: true, color: dados.dataApresentacaoTcc ? undefined : COR_VERMELHA }),
+                new TextRun({ text: ", Nota ", font: FONTE_VERSO, size: 22, bold: true }),
+                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, bold: true, color: COR_VERMELHA }),
+                new TextRun({ text: ".", font: FONTE_VERSO, size: 22, bold: true }),
               ],
             }),
           ]),
@@ -262,15 +273,15 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
             p2("Diretoria de Ensino, Instrução e Pesquisa/PMMT", { bold: true }),
             new Paragraph({
               children: [
-                new TextRun({ text: "Registro de Apostilamento sob nº ", font: FONTE_VERSO, size: 18 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 18, color: COR_VERMELHA }),
-                new TextRun({ text: ", do Livro nº ", font: FONTE_VERSO, size: 18 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 18, color: COR_VERMELHA }),
-                new TextRun({ text: ", folha nº ", font: FONTE_VERSO, size: 18 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 18, color: COR_VERMELHA }),
-                new TextRun({ text: ". Processo nº ", font: FONTE_VERSO, size: 18 }),
-                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 18, color: COR_VERMELHA }),
-                new TextRun({ text: ".", font: FONTE_VERSO, size: 18 }),
+                new TextRun({ text: "Registro de Apostilamento sob nº ", font: FONTE_VERSO, size: 22 }),
+                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+                new TextRun({ text: ", do Livro nº ", font: FONTE_VERSO, size: 22 }),
+                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+                new TextRun({ text: ", folha nº ", font: FONTE_VERSO, size: 22 }),
+                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+                new TextRun({ text: ". Processo nº ", font: FONTE_VERSO, size: 22 }),
+                new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, color: COR_VERMELHA }),
+                new TextRun({ text: ".", font: FONTE_VERSO, size: 22 }),
               ],
             }),
             p2(""),
@@ -365,7 +376,7 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
                       type: seloRepublica.formato,
                       transformation: { width: 126, height: 126 },
                       floating: {
-                        horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 4800600 },
+                        horizontalPosition: { relative: HorizontalPositionRelativeFrom.COLUMN, offset: 4260215 },
                         verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: 331470 },
                         wrap: { type: TextWrappingType.NONE },
                         allowOverlap: true,
