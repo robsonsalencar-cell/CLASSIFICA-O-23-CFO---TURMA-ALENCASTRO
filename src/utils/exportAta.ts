@@ -26,6 +26,7 @@ export interface MembroComissaoAta {
 }
 
 export interface AlunoRankingAta {
+  alunoId: string;
   nome: string;
   media: number;
 }
@@ -125,7 +126,9 @@ function downloadBlob(blob: Blob, filename: string) {
   link.href = URL.createObjectURL(blob);
   link.download = filename;
   link.click();
-  URL.revokeObjectURL(link.href);
+  // Adia a revogação — evita cortar o download em navegadores que ainda
+  // estão lendo o blob de forma assíncrona quando o clique retorna.
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
 function txt(texto: string, opts: { bold?: boolean; size?: number } = {}): TextRun {

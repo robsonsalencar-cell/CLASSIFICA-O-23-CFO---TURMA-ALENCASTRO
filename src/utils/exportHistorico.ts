@@ -19,7 +19,7 @@ import {
   TEXTO_LEGAL_FECHAMENTO,
   BRASAO_OFICIAL_APMCV_URL,
 } from "@/config/documentosOficiais";
-import { notaPorExtenso } from "@/utils/numeroExtenso";
+import { notaPorExtenso4 } from "@/utils/numeroExtenso";
 import { carregarImagemBrasao } from "@/utils/brasaoImagem";
 
 const COR_VERMELHA = "FF0000";
@@ -101,7 +101,9 @@ function downloadBlob(blob: Blob, filename: string) {
   link.href = URL.createObjectURL(blob);
   link.download = filename;
   link.click();
-  URL.revokeObjectURL(link.href);
+  // Adia a revogação — evita cortar o download em navegadores que ainda
+  // estão lendo o blob de forma assíncrona quando o clique retorna.
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
 // --- Word ---
@@ -263,7 +265,7 @@ export async function exportarHistoricoWord(dados: DadosExportacaoHistorico) {
           ...tabelaAno("3º Ano CFO", dados.anoLetivoCfo3, dados.disciplinasCfo3, dados.mediaCfo3),
           new Paragraph({ text: `Registro nº: ${dados.matriculaAcademia ?? PLACEHOLDER}` }),
           new Paragraph({
-            text: `Nota de Aprovação: ${dados.mediaFinal.toFixed(4)} (${notaPorExtenso(dados.mediaFinal)})`,
+            text: `Nota de Aprovação: ${dados.mediaFinal.toFixed(4)} (${notaPorExtenso4(dados.mediaFinal)})`,
           }),
           new Paragraph({ text: `Classificação: ${dados.rank ?? "—"}º Lugar` }),
           new Paragraph({ text: "" }),
@@ -332,7 +334,7 @@ export function exportarHistoricoExcel(dados: DadosExportacaoHistorico) {
     ["Ano de conclusão do 2º grau", dados.anoConclusaoEnsinoMedio ?? "—"],
     [],
     ["Registro nº", dados.matriculaAcademia ?? "—"],
-    ["Nota de Aprovação", `${dados.mediaFinal.toFixed(4)} (${notaPorExtenso(dados.mediaFinal)})`],
+    ["Nota de Aprovação", `${dados.mediaFinal.toFixed(4)} (${notaPorExtenso4(dados.mediaFinal)})`],
     ["Classificação", `${dados.rank ?? "—"}º Lugar`],
     [],
     ["Emitido em", dados.dataEmissao],

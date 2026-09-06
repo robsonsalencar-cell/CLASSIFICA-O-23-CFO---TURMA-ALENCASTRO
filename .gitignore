@@ -22,3 +22,17 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Segredos e dados pessoais reais de alunos (scripts avulsos de correção
+# pontual, planilhas extraídas, dumps de docs de referência) — nunca
+# versionar. Ver auditoria de segurança de 2026-09-05: hoje nenhum desses
+# arquivos está no histórico do Git, mas sem essas regras um `git add -A`
+# desavisado os comitaria (PII real: CPF, RG, endereço, telefone).
+.env
+.env.*
+!.env.example
+fix_*.sql
+update_dados_*.sql
+audit_verificacao_*.sql
+planilha_*_extraida.json
+docs_extracted/

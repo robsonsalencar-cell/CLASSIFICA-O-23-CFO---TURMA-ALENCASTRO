@@ -62,13 +62,37 @@ const UF_NOMES: Record<string, string> = {
   SE: "Sergipe", TO: "Tocantins",
 };
 
-/** "Cuiabá-MT" -> { cidade: "Cuiabá", estado: "Mato Grosso" }; null se não bater o padrão. */
+// Capitais/cidades conhecidas que às vezes são cadastradas sem o sufixo
+// "-UF" (ex: planilhas antigas com só "Brasília") — sem isso, o Diploma
+// saía com "Estado de ______" em branco mesmo a cidade sendo inequívoca.
+const CIDADE_SEM_UF_CONHECIDA: Record<string, string> = {
+  "brasilia": "DF",
+  "brasília": "DF",
+};
+
+function capitalizarCidade(cidade: string): string {
+  return cidade
+    .trim()
+    .split(/\s+/)
+    .map((palavra) => (palavra.length > 2 ? palavra.charAt(0).toUpperCase() + palavra.slice(1) : palavra))
+    .join(" ");
+}
+
+/**
+ * "Cuiabá-MT" -> { cidade: "Cuiabá", estado: "Mato Grosso" }.
+ * "Brasília" (sem UF, cidade conhecida) -> { cidade: "Brasília", estado: "Distrito Federal" }.
+ * Qualquer outro formato -> null (quem chama cai no texto cru como fallback).
+ */
 function separarNaturalidade(naturalidade: string | null): { cidade: string; estado: string } | null {
   if (!naturalidade) return null;
-  const m = naturalidade.trim().match(/^(.+?)\s*-\s*([A-Za-z]{2})$/);
-  if (!m) return null;
-  const estado = UF_NOMES[m[2].toUpperCase()];
-  return estado ? { cidade: m[1].trim(), estado } : null;
+  const bruto = naturalidade.trim();
+  const m = bruto.match(/^(.+?)\s*-\s*([A-Za-z]{2})$/);
+  if (m) {
+    const estado = UF_NOMES[m[2].toUpperCase()];
+    return estado ? { cidade: capitalizarCidade(m[1]), estado } : null;
+  }
+  const uf = CIDADE_SEM_UF_CONHECIDA[bruto.toLowerCase()];
+  return uf ? { cidade: capitalizarCidade(bruto), estado: UF_NOMES[uf] } : null;
 }
 
 export interface DadosExportacaoDiploma {
@@ -97,7 +121,11 @@ function downloadBlob(blob: Blob, filename: string) {
   link.href = URL.createObjectURL(blob);
   link.download = filename;
   link.click();
-  URL.revokeObjectURL(link.href);
+  // Adia a revogação (em vez de revogar na mesma call stack do click) —
+  // alguns navegadores ainda estão lendo o blob de forma assíncrona pra
+  // iniciar o download quando o arquivo é grande (o Diploma embute vários
+  // brasões + selo, então é o mais suscetível dos 3 documentos a isso).
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
 function txt(texto: string, opts: { size: number; font?: string; bold?: boolean; color?: string } = { size: 36 }): TextRun {
@@ -403,7 +431,7 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
               txt(" PMMT, nascido(a) em ", { size: 36 }),
               vermelho(dados.dataNascimento, { size: 36 }),
               txt(", em ", { size: 36 }),
-              vermelho(natural?.cidade ?? dados.naturalidade, { size: 36 }),
+              vermelho(natural?.cidade ?? (dados.naturalidade ? capitalizarCidade(dados.naturalidade) : null), { size: 36 }),
               txt(", Estado de ", { size: 36 }),
               vermelho(natural?.estado ?? null, { size: 36 }),
               txt(", e outorga-lhe o Presente Diploma, a fim de que possa gozar de todos os direitos e prerrogativas legais.", { size: 36 }),
