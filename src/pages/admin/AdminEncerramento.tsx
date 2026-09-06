@@ -418,6 +418,28 @@ function ComissoesCard({
       toast({ title: "Preencha referente a, número e data da portaria", variant: "destructive" });
       return;
     }
+
+    // Linha "parcial" = só nome OU só posto preenchido (não os dois, nem
+    // nenhum dos dois — uma linha totalmente vazia é normal, é só a linha
+    // extra que sobrou no formulário, e continua sendo ignorada em
+    // silêncio). Antes, uma linha parcial era simplesmente descartada sem
+    // aviso nenhum ao salvar — o admin só descobria que faltou um membro
+    // na hora de gerar a Ata, com a assinatura faltando.
+    const parciais = membros
+      .map((m, i) => ({ ...m, indice: i + 1 }))
+      .filter((m) => Boolean(m.nome.trim()) !== Boolean(m.posto_graduacao.trim()));
+    if (parciais.length > 0) {
+      const detalhe = parciais
+        .map((m) => `Membro ${m.indice}${m.nome ? ` (${m.nome})` : ""}: falta ${m.nome ? "o posto/graduação" : "o nome"}`)
+        .join("; ");
+      toast({
+        title: "Membro incompleto — nada foi salvo",
+        description: `Preencha nome e posto/graduação juntos, ou deixe os dois vazios. ${detalhe}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSalvando(true);
     const { data: comissao, error } = await supabase
       .from("comissoes_encerramento")
@@ -454,7 +476,15 @@ function ComissoesCard({
         }))
       );
       if (erroMembros) {
-        toast({ title: "Comissão salva, mas houve erro nos membros", description: erroMembros.message, variant: "destructive" });
+        // Não reseta nem fecha o diálogo aqui — a comissão já foi criada no
+        // banco (sem membro nenhum), mas os dados digitados continuam na
+        // tela pra o admin não precisar retypar tudo. `onChange()` atualiza
+        // a lista pra a comissão órfã já aparecer (e poder ser excluída e
+        // recriada, se for o caso).
+        setSalvando(false);
+        toast({ title: "Comissão salva, mas houve erro nos membros — dados mantidos na tela", description: erroMembros.message, variant: "destructive" });
+        onChange();
+        return;
       }
     }
 
