@@ -64,4 +64,10 @@ export interface Profile {
   turma_id: string | null;
   senha_trocada: boolean;
   created_at: string;
+  // Adicionadas via migration_3 (matrícula por módulo) — faltavam neste
+  // tipo, causando erro de compilação em AdminUsersPanel.tsx sem afetar o
+  // app rodando (o valor sempre existiu no banco, só não estava tipado).
+  matriculado_cfo1: boolean;
+  matriculado_cfo2: boolean;
+  matriculado_cfo3: boolean;
 }
