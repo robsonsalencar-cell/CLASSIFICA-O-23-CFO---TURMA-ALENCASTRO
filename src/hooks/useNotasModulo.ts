@@ -50,10 +50,18 @@ export function useNotasModulo(tabela: TabelaModulo) {
     // admin simulando, pra pré-visualização bater com o que o aluno vê.
     const verTurmaInteira = (isAdmin && !effectiveAlunoId) || rankingPublicoLiberado;
 
+    // Admin sempre teve (e continua tendo) acesso à linha inteira de
+    // `profiles` via RLS — pode usar o embed do PostgREST direto. Um aluno
+    // comum (ranking público ligado) NÃO tem mais esse acesso de propósito
+    // (ver migration_38: fechamos o vazamento de CPF/RG/endereço/etc de
+    // colega via essa exceção) — nome/matrícula do colega, nesse caso,
+    // vêm de uma função dedicada que só devolve esses 2 campos.
+    const usarEmbedDeProfiles = isAdmin;
+
     let query = supabase
       .from(tabela)
       .select(
-        verTurmaInteira
+        verTurmaInteira && usarEmbedDeProfiles
           ? "id, aluno_id, materia, vc, vc_lista, vf, nota_final, verif_2a_epoca, media_2a_epoca, updated_at, profiles(nome_completo, matricula)"
           : "id, aluno_id, materia, vc, vc_lista, vf, nota_final, verif_2a_epoca, media_2a_epoca, updated_at"
       );
@@ -93,6 +101,32 @@ export function useNotasModulo(tabela: TabelaModulo) {
     if (error) {
       setError(error.message);
       setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    if (verTurmaInteira && !usarEmbedDeProfiles && turmaAtualId) {
+      // Aluno vendo a turma inteira via ranking público: busca nome/matrícula
+      // de todo mundo pela função dedicada (só esses 2 campos, nunca a ficha
+      // completa — ver migration_38).
+      const { data: nomes, error: erroNomes } = await supabase.rpc("nomes_turma_ranking_publico", {
+        p_turma_id: turmaAtualId,
+      });
+      if (erroNomes) {
+        setError(erroNomes.message);
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+      const nomesPorId = new Map<string, { nome_completo: string; matricula: string | null }>(
+        (nomes ?? []).map((n: any) => [n.id, n])
+      );
+      const mapped = (data ?? []).map((r: any) => ({
+        ...r,
+        aluno_nome: nomesPorId.get(r.aluno_id)?.nome_completo,
+        aluno_matricula: nomesPorId.get(r.aluno_id)?.matricula ?? null,
+      }));
+      setRows(mapped);
     } else {
       const mapped = (data ?? []).map((r: any) => ({
         ...r,
