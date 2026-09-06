@@ -26,13 +26,22 @@ async function mediaPorAluno(
   materiasOficiais: string[],
   colunaMatriculado: "matriculado_cfo1" | "matriculado_cfo2" | "matriculado_cfo3"
 ): Promise<Map<string, { nome: string; media: number }>> {
-  const [{ data: perfis }, { data: notas }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, nome_completo, matriculado_cfo1, matriculado_cfo2, matriculado_cfo3")
-      .eq("turma_id", turmaId),
-    supabase.from(tabela).select("aluno_id, materia, nota_final"),
-  ]);
+  // Busca os perfis da turma primeiro (não em paralelo com as notas) pra
+  // poder filtrar a query de notas por esses aluno_id — sem isso, a query
+  // de notas trazia TODAS as linhas de TODAS as turmas do sistema (a RLS já
+  // barrava um 'admin' comum de ver nota de outra turma, mas um
+  // 'admin_institucional'/'desenvolvedor', que legitimamente tem acesso a
+  // várias turmas, recebia notas de turmas que não interessam nesta Ata —
+  // dado a mais trafegando sem necessidade).
+  const { data: perfis } = await supabase
+    .from("profiles")
+    .select("id, nome_completo, matriculado_cfo1, matriculado_cfo2, matriculado_cfo3")
+    .eq("turma_id", turmaId);
+
+  const idsDaTurma = (perfis ?? []).map((p: any) => p.id);
+  const { data: notas } = idsDaTurma.length > 0
+    ? await supabase.from(tabela).select("aluno_id, materia, nota_final").in("aluno_id", idsDaTurma)
+    : { data: [] as NotaRow[] };
 
   const perfisPorId = new Map<string, PerfilRow>((perfis ?? []).map((p: any) => [p.id, p]));
   // Map por matéria (não array) — protege contra dobrar a nota na média se
