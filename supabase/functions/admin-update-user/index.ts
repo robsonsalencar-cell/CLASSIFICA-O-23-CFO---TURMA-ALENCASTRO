@@ -7,7 +7,20 @@
 //   supabase functions deploy admin-update-user
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeadersFor } from "../_shared/cors.ts";
+// CORS: só libera o domínio de produção + localhost (porta do Vite) em vez
+// de "*" (qualquer site). Ecoa a origem de quem chamou só se ela estiver
+// na lista permitida.
+const ALLOWED_ORIGINS = new Set(["https://painel-cfo-apmcv.vercel.app", "http://localhost:8080"]);
+const ORIGEM_PADRAO = "https://painel-cfo-apmcv.vercel.app";
+function corsHeadersFor(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") ?? "";
+  const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : ORIGEM_PADRAO;
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
 
 Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
