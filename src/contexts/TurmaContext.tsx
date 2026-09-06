@@ -208,34 +208,20 @@ export function TurmaProvider({ children }: { children: ReactNode }) {
   }
 
   async function atribuirNumeroRegistroHistorico(alunoId: string, turmaId: string) {
-    const { data: alunoAtual, error: alunoError } = await supabase
-      .from("profiles")
-      .select("numero_registro_historico")
-      .eq("id", alunoId)
-      .single();
-    if (alunoError) return { numero: null, error: alunoError.message };
-    if (alunoAtual.numero_registro_historico != null) {
-      return { numero: alunoAtual.numero_registro_historico as number, error: null };
-    }
-
-    const turma = turmas.find((t) => t.id === turmaId);
-    const proximo = turma?.proximo_numero_registro_historico ?? 1;
-
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ numero_registro_historico: proximo })
-      .eq("id", alunoId);
-    if (profileError) return { numero: null, error: profileError.message };
-
-    const { error: turmaError } = await supabase
-      .from("turmas")
-      .update({ proximo_numero_registro_historico: proximo + 1 })
-      .eq("id", turmaId);
-    // O número já foi gravado no aluno mesmo se este update falhar — só o
-    // contador da turma ficaria parado; próxima exportação reusaria o mesmo
-    // número. Risco aceito (painel de uso único, só admin exporta).
+    // Lê-e-incrementa numa função só, atômica, no banco (migration_39) —
+    // antes isso eram 3 chamadas separadas do navegador, lendo o "próximo
+    // número" do estado React em memória. Gerar o Histórico de dois alunos
+    // em sequência rápida (antes desse estado atualizar) podia gravar o
+    // MESMO número nos dois; a função no banco trava a linha da turma até
+    // terminar, então uma segunda chamada concorrente sempre espera a
+    // primeira e nunca lê o mesmo valor.
+    const { data: numero, error } = await supabase.rpc("atribuir_numero_registro_historico", {
+      p_aluno_id: alunoId,
+      p_turma_id: turmaId,
+    });
+    if (error) return { numero: null, error: error.message };
     await carregar();
-    return { numero: proximo, error: turmaError?.message ?? null };
+    return { numero: numero as number, error: null };
   }
 
   async function finalizarTurma(id: string, valor: boolean) {
