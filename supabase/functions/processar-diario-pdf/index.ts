@@ -1,17 +1,23 @@
 // Supabase Edge Function: processar-diario-pdf
 // Recebe um PDF de Diário de Classe (escaneado) + o nome da matéria, usa a
-// API da Mistral AI (Document Understanding, com OCR + LLM embutidos) para
-// EXTRAIR os dados da tabela (nome do aluno + notas de VC/VF), e devolve
-// isso pro admin CONFERIR antes de gravar qualquer coisa no banco — esta
-// função NUNCA grava notas sozinha.
+// API do Google Gemini (Document Understanding, com OCR + LLM embutidos)
+// para EXTRAIR os dados da tabela (nome do aluno + notas de VC/VF), e
+// devolve isso pro admin CONFERIR antes de gravar qualquer coisa no banco —
+// esta função NUNCA grava notas sozinha.
+//
+// Antes esta função usava a Mistral AI; trocamos para a Gemini porque a
+// cota gratuita da Mistral esgotava com facilidade (2 diários seguidos já
+// era suficiente). Para a Gemini NÃO esgotar da mesma forma, ative o
+// faturamento pré-pago (billing) na conta Google usada para gerar a chave —
+// a assinatura "Google AI Pro/Ultra" NÃO aumenta o limite da API usada
+// aqui, ela só aumenta o limite de uso manual dentro do site do AI Studio.
 //
 // Requer um segredo configurado no projeto Supabase:
-//   MISTRAL_API_KEY  (crie gratuitamente em https://console.mistral.ai/api-keys —
-//   tier gratuito não pede cartão de crédito)
+//   GEMINI_API_KEY  (gere em https://aistudio.google.com/apikey)
 //
 // Deploy:
 //   supabase functions deploy processar-diario-pdf
-//   supabase secrets set MISTRAL_API_KEY=xxxxx
+//   supabase secrets set GEMINI_API_KEY=xxxxx
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // CORS: só libera o domínio de produção + localhost (porta do Vite) em vez
@@ -47,13 +53,13 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const mistralKey = Deno.env.get("MISTRAL_API_KEY");
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
 
-    if (!mistralKey) {
+    if (!geminiKey) {
       return new Response(
         JSON.stringify({
           error:
-            "MISTRAL_API_KEY não configurada nos segredos do Supabase. Veja o comentário no topo deste arquivo.",
+            "GEMINI_API_KEY não configurada nos segredos do Supabase. Veja o comentário no topo deste arquivo.",
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -178,71 +184,77 @@ Regras importantes:
 - Se um aluno não tiver nenhuma nota lançada nessa matéria, não inclua ele na lista.
 - Não invente valores — se não conseguir ler algum número com certeza, use null nesse campo.`;
 
-    // A conta gratuita da Mistral aplica um limite de requisições por
-    // minuto (HTTP 429 "Rate limit exceeded"). Antes, a primeira resposta
-    // 429 já derrubava a importação com erro — o que ficou pior ao passar a
-    // importar duas vezes por matéria (dois pelotões, mesma turma). Agora
-    // tentamos de novo automaticamente, respeitando o cabeçalho
-    // "Retry-After" quando a Mistral o envia, com até 5 tentativas e espera
-    // crescente (backoff de 10/20/30/40s) como fallback — intervalo maior
-    // que o original porque 2 chamadas pesadas (OCR de PDF) seguidas vêm
-    // esgotando a cota rápido demais com esperas curtas. Mantém folga para
-    // não estourar o tempo máximo de execução da Edge Function.
+    // Mesmo na Gemini, uma chave sem faturamento ativado tem cota limitada
+    // (HTTP 429). Tentamos de novo automaticamente, respeitando o tempo de
+    // espera que a própria API sugere (vem dentro do corpo do erro, em
+    // error.details[].retryDelay, ex: "23s"), com até 5 tentativas e espera
+    // crescente (backoff de 10/20/30/40s) como fallback quando a API não
+    // informa esse tempo. Mantém folga para não estourar o tempo máximo de
+    // execução da Edge Function.
+    const MODELO_GEMINI = "gemini-3.8-flash";
     const MAX_TENTATIVAS = 5;
     let response: Response | null = null;
-    let erroTexto = "";
+    let corpoErro: any = null;
 
     for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
-      response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${mistralKey}`,
-        },
-        body: JSON.stringify({
-          model: "mistral-small-latest",
-          temperature: 0,
-          max_tokens: 8192,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                {
-                  type: "document_url",
-                  document_url: `data:application/pdf;base64,${pdf_base64}`,
-                },
-              ],
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODELO_GEMINI}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": geminiKey,
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: prompt },
+                  { inline_data: { mime_type: "application/pdf", data: pdf_base64 } },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json",
             },
-          ],
-        }),
-      });
+          }),
+        }
+      );
 
       if (response.ok) break;
 
       if (response.status === 429 && tentativa < MAX_TENTATIVAS) {
-        const retryAfterHeader = response.headers.get("retry-after");
-        const retryAfterSegundos = retryAfterHeader ? parseFloat(retryAfterHeader) : NaN;
-        const esperaMs = !isNaN(retryAfterSegundos)
-          ? retryAfterSegundos * 1000
+        corpoErro = await response.json().catch(() => null);
+        const retryInfo = (corpoErro?.error?.details ?? []).find((d: any) =>
+          String(d["@type"] ?? "").includes("RetryInfo")
+        );
+        const retryDelaySegundos = retryInfo?.retryDelay
+          ? parseFloat(String(retryInfo.retryDelay).replace("s", ""))
+          : NaN;
+        const esperaMs = !isNaN(retryDelaySegundos)
+          ? retryDelaySegundos * 1000
           : tentativa * 10000; // 10s, 20s, 30s, 40s... se a API não disser quanto esperar
         await new Promise((r) => setTimeout(r, esperaMs));
         continue;
       }
 
       // Erro diferente de 429, ou 429 persistente após todas as tentativas:
-      // guarda o texto e sai do loop para responder abaixo.
-      erroTexto = await response.text();
+      // guarda o corpo e sai do loop para responder abaixo.
+      corpoErro = await response.json().catch(() => null);
       break;
     }
 
     if (!response || !response.ok) {
       const mensagemAmigavel =
         response?.status === 429
-          ? "A API da Mistral está recusando novas requisições por excesso de uso (limite do plano gratuito). " +
-            "Tentei novamente algumas vezes automaticamente, mas o limite continua ativo — aguarde alguns minutos " +
-            "e tente importar este diário novamente."
-          : `Erro na API da Mistral: ${erroTexto}`;
+          ? "A API da Gemini está recusando novas requisições por excesso de uso (cota da chave gratuita). " +
+            "Tentei novamente algumas vezes automaticamente, mas o limite continua ativo — ative o faturamento " +
+            "pré-pago (com teto de gasto) na conta Google usada para gerar a chave, em aistudio.google.com, " +
+            "para que isso pare de acontecer."
+          : `Erro na API da Gemini: ${corpoErro?.error?.message ?? JSON.stringify(corpoErro)}`;
       return new Response(JSON.stringify({ error: mensagemAmigavel }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -251,11 +263,24 @@ Regras importantes:
 
     const resultado = await response.json();
 
-    const escolha = resultado.choices?.[0];
+    // Prompt bloqueado por filtro de segurança (sem nenhum candidato) —
+    // raro para um diário de classe, mas possível.
+    if (!resultado.candidates || resultado.candidates.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error: `A IA não retornou nenhum resultado (motivo: ${
+            resultado.promptFeedback?.blockReason ?? "desconhecido"
+          }). Resposta bruta: ${JSON.stringify(resultado)}`,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const candidato = resultado.candidates[0];
 
     // Detecta se a resposta foi cortada por atingir o limite de tokens —
     // nesse caso o JSON fica incompleto e não dá pra recuperar.
-    if (escolha?.finish_reason === "length") {
+    if (candidato.finishReason === "MAX_TOKENS") {
       return new Response(
         JSON.stringify({
           error:
@@ -265,24 +290,16 @@ Regras importantes:
       );
     }
 
-    if (!escolha) {
-      return new Response(
-        JSON.stringify({
-          error: `A IA não retornou nenhum resultado. Resposta bruta: ${JSON.stringify(resultado)}`,
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const textoResposta = escolha.message?.content ?? "";
+    const textoResposta = (candidato.content?.parts ?? [])
+      .map((p: any) => p.text ?? "")
+      .join("");
 
     let extraido;
     try {
-      // Remove blocos de código markdown, se houver
+      // Como pedimos responseMimeType "application/json", a resposta já
+      // deve vir como JSON puro — mas mantemos a limpeza como segurança
+      // extra, caso a IA ainda adicione blocos de código markdown.
       let jsonLimpo = textoResposta.replace(/```json|```/g, "").trim();
-      // Caso a IA tenha adicionado algum texto antes/depois do JSON (mesmo
-      // com instrução contrária), extrai só o trecho entre a primeira "{" e
-      // a última "}" — muito mais tolerante a pequenas variações.
       const inicio = jsonLimpo.indexOf("{");
       const fim = jsonLimpo.lastIndexOf("}");
       if (inicio !== -1 && fim !== -1 && fim > inicio) {
