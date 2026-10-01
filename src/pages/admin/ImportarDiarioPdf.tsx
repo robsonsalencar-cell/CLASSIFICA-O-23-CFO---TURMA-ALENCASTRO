@@ -55,12 +55,27 @@ function paraTexto(vc: number[]) {
   return vc.join(", ");
 }
 
+// Pausa entre o processamento de arquivos consecutivos (ex: diário do 1º e
+// do 2º pelotão da mesma matéria) para não disparar de novo o limite de
+// requisições por minuto da Mistral logo em seguida da primeira chamada.
+const PAUSA_ENTRE_ARQUIVOS_MS = 4000;
+
+function lerArquivoComoBase64(arquivo: File): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(arquivo);
+  });
+}
+
 export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImportado }: Props) {
   const { turmaAtualId } = useTurma();
   const [aberto, setAberto] = useState(false);
   const [materia, setMateria] = useState("");
-  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [arquivos, setArquivos] = useState<File[]>([]);
   const [processando, setProcessando] = useState(false);
+  const [progresso, setProgresso] = useState<{ atual: number; total: number } | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [alunosExtraidos, setAlunosExtraidos] = useState<AlunoExtraido[]>([]);
@@ -69,50 +84,80 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
 
   function resetar() {
     setMateria("");
-    setArquivo(null);
+    setArquivos([]);
     setErro(null);
     setAlunosExtraidos([]);
     setErrosSalvamento([]);
+    setProgresso(null);
   }
 
   async function handleProcessar() {
-    if (!materia || !arquivo) {
-      toast({ title: "Selecione a matéria e o arquivo PDF", variant: "destructive" });
+    if (!materia || arquivos.length === 0) {
+      toast({ title: "Selecione a matéria e ao menos um arquivo PDF", variant: "destructive" });
+      return;
+    }
+    if (!turmaAtualId) {
+      setErro("Nenhuma turma selecionada.");
       return;
     }
     setProcessando(true);
     setErro(null);
 
-    try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(arquivo);
-      });
+    // Processa os arquivos em SEQUÊNCIA (nunca em paralelo) — cada um é uma
+    // turma/pelotão diferente da MESMA matéria (ex: diário do 1º e do 2º
+    // pelotão), e chamar a API da Mistral em paralelo só aumenta a chance de
+    // bater no limite de requisições por minuto do plano gratuito.
+    const todosAlunosExtraidos: AlunoExtraido[] = [];
+    let alunosDaTurmaRecebidos: AlunoOpcao[] = [];
 
-      if (!turmaAtualId) {
-        setErro("Nenhuma turma selecionada.");
+    for (let i = 0; i < arquivos.length; i++) {
+      setProgresso({ atual: i + 1, total: arquivos.length });
+      try {
+        const base64 = await lerArquivoComoBase64(arquivos[i]);
+
+        const { data, error } = await supabase.functions.invoke("processar-diario-pdf", {
+          body: { pdf_base64: base64, materia, turma_id: turmaAtualId, tabela },
+        });
+
+        if (error || (data as any)?.error) {
+          setErro(
+            `Arquivo "${arquivos[i].name}" (${i + 1} de ${arquivos.length}): ` +
+              (await extrairMensagemErroEdgeFunction(error, data))
+          );
+          setProcessando(false);
+          setProgresso(null);
+          // Mantém o que já foi extraído dos arquivos anteriores (se houver)
+          // em vez de descartar tudo por causa de uma falha no último arquivo.
+          if (todosAlunosExtraidos.length > 0) {
+            setAlunosExtraidos(todosAlunosExtraidos);
+            setAlunosDaTurma(alunosDaTurmaRecebidos);
+          }
+          return;
+        }
+
+        todosAlunosExtraidos.push(...((data as any).alunos ?? []));
+        alunosDaTurmaRecebidos = (data as any).alunos_da_turma ?? alunosDaTurmaRecebidos;
+      } catch (e: any) {
+        setErro(`Arquivo "${arquivos[i].name}" (${i + 1} de ${arquivos.length}): ${String(e)}`);
         setProcessando(false);
+        setProgresso(null);
+        if (todosAlunosExtraidos.length > 0) {
+          setAlunosExtraidos(todosAlunosExtraidos);
+          setAlunosDaTurma(alunosDaTurmaRecebidos);
+        }
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("processar-diario-pdf", {
-        body: { pdf_base64: base64, materia, turma_id: turmaAtualId, tabela },
-      });
-
-      if (error || (data as any)?.error) {
-        setErro(await extrairMensagemErroEdgeFunction(error, data));
-        setProcessando(false);
-        return;
+      // Pausa antes do próximo arquivo (não espera após o último).
+      if (i < arquivos.length - 1) {
+        await new Promise((r) => setTimeout(r, PAUSA_ENTRE_ARQUIVOS_MS));
       }
-
-      setAlunosExtraidos((data as any).alunos ?? []);
-      setAlunosDaTurma((data as any).alunos_da_turma ?? []);
-    } catch (e: any) {
-      setErro(String(e));
     }
+
+    setAlunosExtraidos(todosAlunosExtraidos);
+    setAlunosDaTurma(alunosDaTurmaRecebidos);
     setProcessando(false);
+    setProgresso(null);
   }
 
   function atualizarLinha(idx: number, patch: Partial<AlunoExtraido>) {
@@ -189,8 +234,10 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
           {alunosExtraidos.length === 0 ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Envie o PDF do diário de classe de UMA matéria. A IA lê a tabela de notas e te
-                mostra uma prévia editável — nada é gravado até você clicar em "Confirmar".
+                Envie o(s) PDF(s) do diário de classe de UMA matéria. Se a turma estiver dividida
+                em mais de um pelotão/sala, selecione os diários de todos eles de uma vez — eles
+                serão processados um por um e reunidos na mesma prévia. A IA lê a tabela de notas e
+                te mostra uma prévia editável — nada é gravado até você clicar em "Confirmar".
               </p>
               <div className="space-y-1">
                 <Label>Matéria deste diário</Label>
@@ -210,18 +257,33 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>Arquivo PDF</Label>
+                <Label>Arquivo(s) PDF {arquivos.length > 1 && `(${arquivos.length} selecionados)`}</Label>
                 <Input
                   type="file"
                   accept="application/pdf"
-                  onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+                  multiple
+                  onChange={(e) => setArquivos(Array.from(e.target.files ?? []))}
                 />
+                {arquivos.length > 1 && (
+                  <ul className="text-xs text-muted-foreground list-disc list-inside pt-1">
+                    {arquivos.map((f, i) => (
+                      <li key={i}>{f.name}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
+              {processando && progresso && (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Processando arquivo {progresso.atual} de {progresso.total}
+                  {progresso.total > 1 ? " — aguardando entre arquivos para não exceder o limite da IA..." : "..."}
+                </p>
+              )}
               {erro && <p className="text-sm text-destructive">{erro}</p>}
               <div className="flex justify-end">
                 <Button onClick={handleProcessar} disabled={processando}>
                   {processando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Processar PDF
+                  Processar {arquivos.length > 1 ? `${arquivos.length} PDFs` : "PDF"}
                 </Button>
               </div>
             </div>

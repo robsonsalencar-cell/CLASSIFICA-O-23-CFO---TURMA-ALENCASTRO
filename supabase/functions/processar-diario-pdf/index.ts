@@ -178,34 +178,69 @@ Regras importantes:
 - Se um aluno não tiver nenhuma nota lançada nessa matéria, não inclua ele na lista.
 - Não invente valores — se não conseguir ler algum número com certeza, use null nesse campo.`;
 
-    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${mistralKey}`,
-      },
-      body: JSON.stringify({
-        model: "mistral-small-latest",
-        temperature: 0,
-        max_tokens: 8192,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              {
-                type: "document_url",
-                document_url: `data:application/pdf;base64,${pdf_base64}`,
-              },
-            ],
-          },
-        ],
-      }),
-    });
+    // A conta gratuita da Mistral aplica um limite de requisições por
+    // minuto (HTTP 429 "Rate limit exceeded"). Antes, a primeira resposta
+    // 429 já derrubava a importação com erro — o que ficou pior ao passar a
+    // importar duas vezes por matéria (dois pelotões, mesma turma). Agora
+    // tentamos de novo automaticamente, respeitando o cabeçalho
+    // "Retry-After" quando a Mistral o envia, com até 4 tentativas e espera
+    // crescente (backoff) como fallback.
+    const MAX_TENTATIVAS = 4;
+    let response: Response | null = null;
+    let erroTexto = "";
 
-    if (!response.ok) {
-      const erroTexto = await response.text();
-      return new Response(JSON.stringify({ error: `Erro na API da Mistral: ${erroTexto}` }), {
+    for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+      response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${mistralKey}`,
+        },
+        body: JSON.stringify({
+          model: "mistral-small-latest",
+          temperature: 0,
+          max_tokens: 8192,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                {
+                  type: "document_url",
+                  document_url: `data:application/pdf;base64,${pdf_base64}`,
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      if (response.ok) break;
+
+      if (response.status === 429 && tentativa < MAX_TENTATIVAS) {
+        const retryAfterHeader = response.headers.get("retry-after");
+        const retryAfterSegundos = retryAfterHeader ? parseFloat(retryAfterHeader) : NaN;
+        const esperaMs = !isNaN(retryAfterSegundos)
+          ? retryAfterSegundos * 1000
+          : tentativa * 5000; // 5s, 10s, 15s... se a API não disser quanto esperar
+        await new Promise((r) => setTimeout(r, esperaMs));
+        continue;
+      }
+
+      // Erro diferente de 429, ou 429 persistente após todas as tentativas:
+      // guarda o texto e sai do loop para responder abaixo.
+      erroTexto = await response.text();
+      break;
+    }
+
+    if (!response || !response.ok) {
+      const mensagemAmigavel =
+        response?.status === 429
+          ? "A API da Mistral está recusando novas requisições por excesso de uso (limite do plano gratuito). " +
+            "Tentei novamente algumas vezes automaticamente, mas o limite continua ativo — aguarde alguns minutos " +
+            "e tente importar este diário novamente."
+          : `Erro na API da Mistral: ${erroTexto}`;
+      return new Response(JSON.stringify({ error: mensagemAmigavel }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
