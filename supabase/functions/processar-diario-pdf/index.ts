@@ -183,9 +183,12 @@ Regras importantes:
     // 429 já derrubava a importação com erro — o que ficou pior ao passar a
     // importar duas vezes por matéria (dois pelotões, mesma turma). Agora
     // tentamos de novo automaticamente, respeitando o cabeçalho
-    // "Retry-After" quando a Mistral o envia, com até 4 tentativas e espera
-    // crescente (backoff) como fallback.
-    const MAX_TENTATIVAS = 4;
+    // "Retry-After" quando a Mistral o envia, com até 5 tentativas e espera
+    // crescente (backoff de 10/20/30/40s) como fallback — intervalo maior
+    // que o original porque 2 chamadas pesadas (OCR de PDF) seguidas vêm
+    // esgotando a cota rápido demais com esperas curtas. Mantém folga para
+    // não estourar o tempo máximo de execução da Edge Function.
+    const MAX_TENTATIVAS = 5;
     let response: Response | null = null;
     let erroTexto = "";
 
@@ -222,7 +225,7 @@ Regras importantes:
         const retryAfterSegundos = retryAfterHeader ? parseFloat(retryAfterHeader) : NaN;
         const esperaMs = !isNaN(retryAfterSegundos)
           ? retryAfterSegundos * 1000
-          : tentativa * 5000; // 5s, 10s, 15s... se a API não disser quanto esperar
+          : tentativa * 10000; // 10s, 20s, 30s, 40s... se a API não disser quanto esperar
         await new Promise((r) => setTimeout(r, esperaMs));
         continue;
       }

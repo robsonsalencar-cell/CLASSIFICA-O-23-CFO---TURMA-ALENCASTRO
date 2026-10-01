@@ -58,7 +58,10 @@ function paraTexto(vc: number[]) {
 // Pausa entre o processamento de arquivos consecutivos (ex: diário do 1º e
 // do 2º pelotão da mesma matéria) para não disparar de novo o limite de
 // requisições por minuto da Mistral logo em seguida da primeira chamada.
-const PAUSA_ENTRE_ARQUIVOS_MS = 4000;
+// 20s porque a conta gratuita vem esgotando a cota rápido com 2 chamadas
+// pesadas (OCR de PDF) seguidas, mesmo com a Edge Function já tentando de
+// novo sozinha em caso de 429.
+const PAUSA_ENTRE_ARQUIVOS_MS = 20000;
 
 function lerArquivoComoBase64(arquivo: File): Promise<string> {
   return new Promise<string>((resolve, reject) => {
