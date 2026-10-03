@@ -1,7 +1,48 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNotasModulo, TabelaModulo } from "@/hooks/useNotasModulo";
 import { Student } from "@/data/mockData";
 import { DetailedStudent } from "@/hooks/useGoogleSheets";
+import { supabase } from "@/lib/supabaseClient";
+import { useTurma } from "@/contexts/TurmaContext";
+
+/**
+ * Matérias "fechadas" numa turma/módulo: só entram aqui as que já têm
+ * nota lançada para TODOS os matriculados daquele módulo na turma — ver
+ * migration_42. Importante pra turma dividida em pelotões (ex: 24º CFO):
+ * uma matéria só deve contar na média/ranking depois que o diário dos
+ * dois pelotões já foi importado, senão quem está no pelotão cujo diário
+ * chegou primeiro sai com vantagem/desvantagem artificial na média.
+ */
+function useMateriasCompletas(tabela: TabelaModulo) {
+  const { turmaAtualId } = useTurma();
+  const [materias, setMaterias] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!turmaAtualId) {
+      setMaterias([]);
+      return;
+    }
+    let cancelado = false;
+    supabase
+      .rpc("materias_completas_turma", { p_turma_id: turmaAtualId, p_tabela: tabela })
+      .then(({ data, error }) => {
+        if (cancelado) return;
+        if (error) {
+          // Se a função ainda não existir no banco (migration_42 não aplicada),
+          // não trava a tela — volta ao comportamento antigo (conta qualquer
+          // matéria lançada) até a migração ser rodada.
+          setMaterias(null);
+          return;
+        }
+        setMaterias((data ?? []).map((r: { materia: string }) => r.materia));
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [tabela, turmaAtualId]);
+
+  return materias;
+}
 
 // Todos os campos "fixos" do tipo Student legado não são mais usados para exibir
 // dados (o StudentDetailsModal já lê de `grades`, um dicionário dinâmico), mas
@@ -41,6 +82,9 @@ export interface AlunoModulo extends DetailedStudent {
  */
 export function useAlunosModulo(tabela: TabelaModulo, listaMaterias: string[]) {
   const { rows, loading, error, refetch, salvarNota, excluirNota } = useNotasModulo(tabela);
+  // null = ainda não carregou/função não existe no banco ainda (migration_42
+  // não aplicada) → não restringe nada, mantém o comportamento antigo.
+  const materiasCompletas = useMateriasCompletas(tabela);
 
   const students = useMemo<AlunoModulo[]>(() => {
     const porAluno = new Map<
@@ -70,7 +114,13 @@ export function useAlunosModulo(tabela: TabelaModulo, listaMaterias: string[]) {
         });
       }
       const entrada = porAluno.get(row.aluno_id)!;
-      if (row.nota_final !== null) {
+      // A matéria só entra na MÉDIA quando já está "fechada" (nota lançada
+      // pros dois pelotões — ver migration_42); antes disso a nota continua
+      // aparecendo normalmente em `detalhado` (ex: "Minhas notas por
+      // matéria"), só não conta no cálculo pra não distorcer quem está no
+      // pelotão cujo diário chegou primeiro.
+      const materiaFechada = materiasCompletas === null || materiasCompletas.includes(row.materia);
+      if (row.nota_final !== null && materiaFechada) {
         entrada.grades[row.materia] = row.nota_final;
       }
       entrada.detalhado[row.materia] = {
@@ -82,27 +132,39 @@ export function useAlunosModulo(tabela: TabelaModulo, listaMaterias: string[]) {
       };
     }
 
-    const provisorio = Array.from(porAluno.entries()).map(([alunoId, { nome, matricula, grades, detalhado }]) => {
-      const valores = Object.values(grades);
-      const mediaFinal = valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
+    const provisorio = Array.from(porAluno.entries())
+      // Só entra no ranking quem já tem pelo menos 1 matéria fechada
+      // contando na média — mesmo critério da função SQL correspondente
+      // (um aluno sem nenhuma matéria fechada ainda não compõe o ranking,
+      // mas continua aparecendo normalmente em telas de edição/consulta
+      // direta das notas, que não usam este hook).
+      .filter(([, { grades }]) => Object.keys(grades).length > 0)
+      .map(([alunoId, { nome, matricula, grades, detalhado }]) => {
+        const valores = Object.values(grades);
+        const mediaFinal = valores.reduce((a, b) => a + b, 0) / valores.length;
 
-      return {
-        ...CAMPOS_LEGADOS_ZERADOS,
-        aluno_id: alunoId,
-        matricula,
-        nome,
-        mediaFinal,
-        rank: 0,
-        grades,
-        gradesDetalhado: detalhado,
-      } as AlunoModulo;
-    });
+        return {
+          ...CAMPOS_LEGADOS_ZERADOS,
+          aluno_id: alunoId,
+          matricula,
+          nome,
+          mediaFinal,
+          rank: 0,
+          grades,
+          gradesDetalhado: detalhado,
+        } as AlunoModulo;
+      });
 
     provisorio.sort((a, b) => b.mediaFinal - a.mediaFinal);
-    provisorio.forEach((s, i) => (s.rank = i + 1));
+    // Mesma regra de empate do RANK() do banco: quem empata na média fica
+    // na mesma posição, e a próxima posição pula o(s) número(s) "gasto(s)"
+    // pelo empate (ex: dois em 1º → o de baixo vai pro 3º, não pro 2º).
+    provisorio.forEach((s, i) => {
+      s.rank = i > 0 && provisorio[i - 1].mediaFinal === s.mediaFinal ? provisorio[i - 1].rank : i + 1;
+    });
 
     return provisorio;
-  }, [rows]);
+  }, [rows, materiasCompletas]);
 
   const launchedSubjects = useMemo(() => {
     const set = new Set(rows.filter((r) => r.nota_final !== null).map((r) => r.materia));

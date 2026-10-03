@@ -124,10 +124,14 @@ const ClassificacaoGeral = () => {
     acumular(cfo3.students, "cfoIII", "CFO III");
 
     const lista = Array.from(porAlunoId.entries())
-      // Só entra na Classificação Geral quem tem nota nos 3 módulos — um
-      // aluno que saiu do curso no meio (ex: só fez CFO I) continua aparecendo
-      // normalmente no ranking daquele módulo, mas não na classificação final.
-      .filter(([, s]) => typeof s.cfoI === "number" && typeof s.cfoII === "number" && typeof s.cfoIII === "number")
+      // Classificação progressiva (decisão do usuário, 03/10/2026): entra
+      // na Classificação Geral quem já tem média em PELO MENOS 1 módulo —
+      // não precisa esperar os 3 completos. Assim dá pra saber a colocação
+      // de cada um desde o início do curso, inclusive se ele terminar antes
+      // do previsto. A média geral usa só os módulos já disponíveis, cada
+      // um continuando com peso de 1/3 (Método A) — mesma lógica da função
+      // estatisticas_classificacao_geral() no banco (migration_41/42).
+      .filter(([, s]) => typeof s.cfoI === "number" || typeof s.cfoII === "number" || typeof s.cfoIII === "number")
       .map(([alunoId, s]) => {
         const medias = [s.cfoI, s.cfoII, s.cfoIII].filter((v): v is number => typeof v === "number");
         const mediaFinal = mediaSimples(medias);
@@ -143,7 +147,12 @@ const ClassificacaoGeral = () => {
       });
 
     lista.sort((a, b) => b.mediaFinal - a.mediaFinal);
-    lista.forEach((s, i) => (s.rank = i + 1));
+    // Mesma regra de empate do RANK() do banco: quem empata na média fica
+    // na mesma posição, e a posição seguinte pula o número "gasto" pelo
+    // empate (ex: dois em 1º → o de baixo vai pro 3º, não pro 2º).
+    lista.forEach((s, i) => {
+      s.rank = i > 0 && lista[i - 1].mediaFinal === s.mediaFinal ? lista[i - 1].rank : i + 1;
+    });
     return lista;
   }, [cfo1.students, cfo2.students, cfo3.students]);
 
