@@ -184,14 +184,19 @@ Regras importantes:
 - Se um aluno não tiver nenhuma nota lançada nessa matéria, não inclua ele na lista.
 - Não invente valores — se não conseguir ler algum número com certeza, use null nesse campo.`;
 
-    // Mesmo na Gemini, uma chave sem faturamento ativado tem cota limitada
-    // (HTTP 429). Tentamos de novo automaticamente, respeitando o tempo de
-    // espera que a própria API sugere (vem dentro do corpo do erro, em
-    // error.details[].retryDelay, ex: "23s"), com até 5 tentativas e espera
-    // crescente (backoff de 10/20/30/40s) como fallback quando a API não
-    // informa esse tempo. Mantém folga para não estourar o tempo máximo de
-    // execução da Edge Function.
-    const MODELO_GEMINI = "gemini-3.8-flash";
+    // Tentamos de novo automaticamente em dois cenários diferentes:
+    // - HTTP 429: cota da chave esgotada (esperamos o "retryDelay" que a
+    //   própria Gemini sugere, quando vem no corpo do erro).
+    // - HTTP 503: o MODELO está sobrecarregado no lado do Google ("This
+    //   model is currently experiencing high demand") — não tem relação
+    //   com a nossa cota, é só fila temporária do modelo.
+    // Em ambos os casos, até 5 tentativas com espera crescente (backoff de
+    // 10/20/30/40s) quando a API não informa quanto esperar. Mantém folga
+    // para não estourar o tempo máximo de execução da Edge Function.
+    // Usamos o "3.5" (legado) em vez do "3.8" (mais novo) porque modelos
+    // recém-lançados tendem a ficar sobrecarregados com mais frequência —
+    // o 3.5 já é mais do que suficiente para ler uma tabela de notas.
+    const MODELO_GEMINI = "gemini-3.5-flash";
     const MAX_TENTATIVAS = 5;
     let response: Response | null = null;
     let corpoErro: any = null;
@@ -226,7 +231,9 @@ Regras importantes:
 
       if (response.ok) break;
 
-      if (response.status === 429 && tentativa < MAX_TENTATIVAS) {
+      const tentarDeNovo = response.status === 429 || response.status === 503;
+
+      if (tentarDeNovo && tentativa < MAX_TENTATIVAS) {
         corpoErro = await response.json().catch(() => null);
         const retryInfo = (corpoErro?.error?.details ?? []).find((d: any) =>
           String(d["@type"] ?? "").includes("RetryInfo")
@@ -241,8 +248,8 @@ Regras importantes:
         continue;
       }
 
-      // Erro diferente de 429, ou 429 persistente após todas as tentativas:
-      // guarda o corpo e sai do loop para responder abaixo.
+      // Erro que não tentamos de novo, ou esgotou as tentativas: guarda o
+      // corpo e sai do loop para responder abaixo.
       corpoErro = await response.json().catch(() => null);
       break;
     }
@@ -254,6 +261,10 @@ Regras importantes:
             "Tentei novamente algumas vezes automaticamente, mas o limite continua ativo — ative o faturamento " +
             "pré-pago (com teto de gasto) na conta Google usada para gerar a chave, em aistudio.google.com, " +
             "para que isso pare de acontecer."
+          : response?.status === 503
+          ? "O modelo da Gemini está com alta demanda no momento (instabilidade do lado do Google, não da sua " +
+            "conta). Tentei novamente algumas vezes automaticamente, mas continuou sobrecarregado — aguarde " +
+            "alguns minutos e tente importar este diário de novo."
           : `Erro na API da Gemini: ${corpoErro?.error?.message ?? JSON.stringify(corpoErro)}`;
       return new Response(JSON.stringify({ error: mensagemAmigavel }), {
         status: 502,
