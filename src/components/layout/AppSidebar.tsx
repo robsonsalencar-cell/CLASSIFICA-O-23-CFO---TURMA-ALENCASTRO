@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConfiguracaoTurma, useTurma } from "@/contexts/TurmaContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -52,6 +52,22 @@ export function AppSidebar() {
       .order("nome_completo")
       .then(({ data }) => setAlunos(data ?? []));
   }, [isAdmin, turmaAtualId]);
+
+  // Sai automaticamente do "Visualizar como" ao trocar a turma em foco.
+  // Sem isso, trocar a "Turma em foco" enquanto o admin simula um aluno de
+  // OUTRA turma mantinha viewingAsAlunoId apontando pro aluno antigo —
+  // useNotasModulo/useEstatisticasModulo filtram só por aluno_id nesse
+  // modo (sem checar turma_id), então as páginas da turma recém-selecionada
+  // continuavam mostrando as notas REAIS do aluno da turma anterior,
+  // parecendo (erroneamente) notas já lançadas na turma nova. "Visualizar
+  // como" só faz sentido dentro da turma em que o aluno está matriculado.
+  const turmaAtualIdAnterior = useRef(turmaAtualId);
+  useEffect(() => {
+    if (turmaAtualIdAnterior.current !== turmaAtualId) {
+      turmaAtualIdAnterior.current = turmaAtualId;
+      setViewingAsAlunoId(null);
+    }
+  }, [turmaAtualId, setViewingAsAlunoId]);
 
   return (
     <Sidebar>
