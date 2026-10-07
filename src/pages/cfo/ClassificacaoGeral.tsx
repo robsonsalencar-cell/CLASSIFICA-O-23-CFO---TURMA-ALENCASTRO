@@ -1,3 +1,4 @@
+import { CreditosContato } from "@/components/layout/CreditosContato";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICard } from "@/components/dashboard/KPICard";
@@ -232,9 +233,7 @@ const ClassificacaoGeral = () => {
           <p className="text-xs md:text-sm text-muted-foreground mt-2 italic">
             "O fim de uma grande jornada — a estrela dourada do aspirantado."
           </p>
-          <div className="w-full text-right mt-3">
-            <span className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
-          </div>
+          <CreditosContato align="right" className="w-full mt-3" />
         </div>
       </div>
     </header>
@@ -516,7 +515,7 @@ const ClassificacaoGeral = () => {
       />
 
       <div className="bg-[hsl(220,50%,10%)] border-t border-primary/20 text-center py-2">
-        <p className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</p>
+        <CreditosContato />
       </div>
     </div>
   );

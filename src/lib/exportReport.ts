@@ -147,6 +147,14 @@ export const exportToPDF = (data: ReportData) => {
       doc.internal.pageSize.getHeight() - 20,
       { align: "center" }
     );
+    doc.setFontSize(8);
+    doc.text(
+      "Contato: WhatsApp (65) 9 9213-7893  |  Tel. (65) 9 9938-9945  |  robsonalencar@pm.mt.gov.br",
+      pageWidth / 2,
+      doc.internal.pageSize.getHeight() - 9,
+      { align: "center" }
+    );
+    doc.setFontSize(9);
     doc.text(
       `Página ${i} de ${pageCount}`,
       pageWidth - 40,

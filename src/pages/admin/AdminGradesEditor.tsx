@@ -19,6 +19,7 @@ import { toast } from "@/hooks/use-toast";
 import { useTurma } from "@/contexts/TurmaContext";
 import { usePermissoesTurma } from "@/hooks/usePermissoesTurma";
 import { ImportarDiarioPdf } from "@/pages/admin/ImportarDiarioPdf";
+import { normalizarNome, compararNomes } from "@/lib/nomes";
 
 interface AlunoOption {
   id: string;
@@ -68,7 +69,9 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
       .eq("turma_id", turmaAtualId)
       .eq(colunaMatricula, true)
       .order("nome_completo")
-      .then(({ data }) => setAlunos(data ?? []));
+      .then(({ data }) =>
+        setAlunos([...(data ?? [])].sort((a, b) => compararNomes(a.nome_completo, b.nome_completo)))
+      );
   }, [turmaAtualId, tabela]);
 
   const novaFinalCalculada = calcularNotaFinalMulti(
@@ -144,6 +147,24 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
       toast({ title: "Registro excluído" });
     }
   }
+
+  // Linhas da tabela "Notas lançadas" depois dos filtros. Quando há filtro por
+  // matéria, os alunos ficam em ordem alfabética. A busca por nome ignora
+  // acentos e maiúsculas/minúsculas.
+  const materiaFiltrada = filtroMateria !== "__todas__";
+  const buscaNormalizada = normalizarNome(filtroAluno);
+  const linhasFiltradas = rows
+    .filter((row) => !materiaFiltrada || row.materia === filtroMateria)
+    .filter((row) =>
+      buscaNormalizada === "" ? true : normalizarNome(row.aluno_nome).includes(buscaNormalizada)
+    );
+  if (materiaFiltrada) {
+    linhasFiltradas.sort((a, b) => compararNomes(a.aluno_nome ?? "", b.aluno_nome ?? ""));
+  }
+  const filtroAtivo = materiaFiltrada || buscaNormalizada !== "";
+  const idsComNota = new Set(linhasFiltradas.map((r) => r.aluno_id));
+  const qtdAlunosComNota = idsComNota.size;
+  const qtdSemNota = alunos.filter((a) => !idsComNota.has(a.id)).length;
 
   async function handleNovoLancamento() {
     if (!novoAlunoId || !novaMateria) {
@@ -314,6 +335,21 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
               />
             </div>
           </div>
+          {filtroAtivo && !loading && !error && (
+            <p className="text-sm font-medium mb-3">
+              {qtdAlunosComNota} {qtdAlunosComNota === 1 ? "aluno com nota lançada" : "alunos com nota lançada"}
+              {materiaFiltrada && buscaNormalizada === "" && alunos.length > 0 && (
+                <span className="text-muted-foreground font-normal">
+                  {" "}
+                  de {alunos.length} matriculados
+                  {qtdSemNota > 0 && ` (faltam ${qtdSemNota})`}
+                </span>
+              )}
+              {linhasFiltradas.length !== qtdAlunosComNota && (
+                <span className="text-muted-foreground font-normal"> · {linhasFiltradas.length} lançamentos</span>
+              )}
+            </p>
+          )}
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -336,14 +372,7 @@ export function AdminGradesEditor({ tabela, tituloModulo, listaMaterias }: Props
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows
-                    .filter((row) => filtroMateria === "__todas__" || row.materia === filtroMateria)
-                    .filter((row) =>
-                      filtroAluno.trim() === ""
-                        ? true
-                        : (row.aluno_nome ?? "").toLowerCase().includes(filtroAluno.trim().toLowerCase())
-                    )
-                    .map((row) => {
+                  {linhasFiltradas.map((row) => {
                     const e = getEdicao(row);
                     return (
                       <TableRow key={row.id}>

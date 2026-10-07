@@ -20,10 +20,11 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileUp, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, FileUp, CheckCircle2, AlertTriangle, Trash2, Pencil, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { TabelaModulo } from "@/hooks/useNotasModulo";
 import { useTurma } from "@/contexts/TurmaContext";
+import { normalizarNome, compararNomes } from "@/lib/nomes";
 
 interface AlunoExtraido {
   nome: string;
@@ -31,6 +32,8 @@ interface AlunoExtraido {
   vf: number | null;
   aluno_id: string | null;
   encontrado: boolean;
+  chave: string; // id estável da linha na prévia (para remover/editar sem confundir linhas)
+  trocando?: boolean; // true enquanto o admin está escolhendo outro aluno para a linha
 }
 
 interface AlunoOpcao {
@@ -49,6 +52,45 @@ interface Props {
     nota_final?: number | null;
   }) => Promise<{ error: string | null }>;
   onImportado?: (materiaImportada: string) => void;
+}
+
+// Recebe o que a Edge Function devolveu e, por segurança, tenta casar de novo
+// os nomes que não casaram IGNORANDO acentos/maiúsculas (ex: "RAI KEVIN" com
+// "RAÍ KEVIN"). Se dois alunos da turma tiverem nomes iguais sem acento, não
+// casa automaticamente (ambíguo) — o admin escolhe manualmente.
+interface AlunoBruto {
+  nome?: string;
+  vc_lista?: number[];
+  vf?: number | null;
+  aluno_id?: string | null;
+  encontrado?: boolean;
+}
+
+function prepararAlunos(brutos: AlunoBruto[], turma: AlunoOpcao[]): AlunoExtraido[] {
+  const porNome = new Map<string, AlunoOpcao | null>(); // null = ambíguo
+  for (const al of turma) {
+    const k = normalizarNome(al.nome_completo);
+    porNome.set(k, porNome.has(k) ? null : al);
+  }
+  return brutos.map((a) => {
+    let aluno_id: string | null = a.aluno_id ?? null;
+    let encontrado = !!a.encontrado && !!aluno_id;
+    if (!aluno_id) {
+      const achado = porNome.get(normalizarNome(a.nome));
+      if (achado) {
+        aluno_id = achado.id;
+        encontrado = true;
+      }
+    }
+    return {
+      nome: a.nome ?? "",
+      vc_lista: a.vc_lista ?? [],
+      vf: a.vf ?? null,
+      aluno_id,
+      encontrado,
+      chave: crypto.randomUUID(),
+    };
+  });
 }
 
 function paraTexto(vc: number[]) {
@@ -138,8 +180,8 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
           return;
         }
 
-        todosAlunosExtraidos.push(...((data as any).alunos ?? []));
         alunosDaTurmaRecebidos = (data as any).alunos_da_turma ?? alunosDaTurmaRecebidos;
+        todosAlunosExtraidos.push(...prepararAlunos((data as any).alunos ?? [], alunosDaTurmaRecebidos));
       } catch (e: any) {
         setErro(`Arquivo "${arquivos[i].name}" (${i + 1} de ${arquivos.length}): ${String(e)}`);
         setProcessando(false);
@@ -166,6 +208,18 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
   function atualizarLinha(idx: number, patch: Partial<AlunoExtraido>) {
     setAlunosExtraidos((prev) => prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)));
   }
+
+  function removerLinha(chave: string) {
+    setAlunosExtraidos((prev) => prev.filter((a) => a.chave !== chave));
+  }
+
+  // Alunos da turma em ordem alfabética (para o seletor de "Escolher aluno")
+  const alunosOrdenados = [...alunosDaTurma].sort((a, b) => compararNomes(a.nome_completo, b.nome_completo));
+
+  // Alunos matriculados que NÃO apareceram em nenhuma linha da prévia — ajuda
+  // a perceber quando a IA deixou um aluno de fora do PDF.
+  const idsNaPrevia = new Set(alunosExtraidos.map((a) => a.aluno_id).filter(Boolean));
+  const alunosForaDaPrevia = alunosOrdenados.filter((al) => !idsNaPrevia.has(al.id));
 
   async function handleConfirmar() {
     const semAlunoId = alunosExtraidos.filter((a) => !a.aluno_id);
@@ -295,7 +349,8 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
               <p className="text-sm text-muted-foreground">
                 Confira os valores extraídos de <strong>{materia}</strong> — corrija o que precisar
                 antes de confirmar. Linhas em amarelo não casaram automaticamente com nenhum aluno
-                cadastrado; escolha manualmente.
+                cadastrado; escolha manualmente. Use o lápis para trocar o aluno de uma linha e a
+                lixeira para tirar uma nota desta importação.
               </p>
               <div className="overflow-x-auto">
                 <Table>
@@ -305,11 +360,14 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
                       <TableHead className="w-48">Casamento</TableHead>
                       <TableHead className="w-40">VC (vírgula)</TableHead>
                       <TableHead className="w-24">VF</TableHead>
+                      <TableHead className="w-12 text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {alunosExtraidos.map((a, idx) => (
-                      <TableRow key={idx} className={!a.aluno_id ? "bg-warning/10" : undefined}>
+                    {alunosExtraidos.map((a, idx) => {
+                      const nomeCasado = alunosDaTurma.find((al) => al.id === a.aluno_id)?.nome_completo;
+                      return (
+                      <TableRow key={a.chave} className={!a.aluno_id ? "bg-warning/10" : undefined}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-1.5">
                             {a.encontrado ? (
@@ -319,26 +377,55 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
                             )}
                             {a.nome}
                           </div>
+                          {nomeCasado && normalizarNome(nomeCasado) !== normalizarNome(a.nome) && (
+                            <div className="text-xs text-muted-foreground pl-5">→ {nomeCasado}</div>
+                          )}
                         </TableCell>
                         <TableCell>
-                          {a.encontrado ? (
-                            <Badge variant="secondary">OK</Badge>
+                          {a.encontrado && !a.trocando ? (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="secondary">OK</Badge>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                                title="Trocar o aluno desta linha"
+                                onClick={() => atualizarLinha(idx, { trocando: true })}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
                           ) : (
-                            <Select
-                              value={a.aluno_id ?? ""}
-                              onValueChange={(v) => atualizarLinha(idx, { aluno_id: v, encontrado: true })}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue placeholder="Escolher aluno" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {alunosDaTurma.map((al) => (
-                                  <SelectItem key={al.id} value={al.id}>
-                                    {al.nome_completo}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-1">
+                              <Select
+                                value={a.aluno_id ?? ""}
+                                onValueChange={(v) =>
+                                  atualizarLinha(idx, { aluno_id: v, encontrado: true, trocando: false })
+                                }
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Escolher aluno" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {alunosOrdenados.map((al) => (
+                                    <SelectItem key={al.id} value={al.id}>
+                                      {al.nome_completo}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {a.trocando && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 shrink-0"
+                                  title="Cancelar a troca"
+                                  onClick={() => atualizarLinha(idx, { trocando: false })}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </TableCell>
                         <TableCell>
@@ -359,11 +446,39 @@ export function ImportarDiarioPdf({ tabela, listaMaterias, salvarNota, onImporta
                             }
                           />
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            title="Remover esta nota da importação"
+                            onClick={() => removerLinha(a.chave)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
+              {alunosForaDaPrevia.length > 0 && (
+                <details className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+                  <summary className="cursor-pointer font-medium">
+                    {alunosForaDaPrevia.length} aluno(s) matriculado(s) não apareceram neste diário
+                  </summary>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Se algum deles deveria ter nota, a IA não leu a linha dele no PDF — lance a nota
+                    manualmente depois, ou reprocesse o arquivo.
+                  </p>
+                  <ul className="text-xs mt-1 space-y-0.5 max-h-32 overflow-y-auto list-disc list-inside">
+                    {alunosForaDaPrevia.map((al) => (
+                      <li key={al.id}>{al.nome_completo}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               {errosSalvamento.length > 0 && (
                 <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1">
                   <p className="text-sm font-semibold text-destructive">

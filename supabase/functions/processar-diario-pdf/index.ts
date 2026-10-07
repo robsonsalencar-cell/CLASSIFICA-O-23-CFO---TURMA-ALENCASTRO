@@ -12,12 +12,28 @@
 // a assinatura "Google AI Pro/Ultra" NÃO aumenta o limite da API usada
 // aqui, ela só aumenta o limite de uso manual dentro do site do AI Studio.
 //
+// ALTERAÇÃO (07/10/2026): a versão anterior fazia até 5 tentativas com
+// esperas de 10/20/30/40s (100s só de espera) + o tempo de cada resposta da
+// Gemini. Com a Gemini sobrecarregada (HTTP 503), isso passava dos ~150s
+// que o Supabase permite no plano Free e a função era MORTA pelo gateway
+// (HTTP 546 WORKER_RESOURCE_LIMIT) — o admin via só "non-2xx status code".
+// Agora:
+//   - existe um ORÇAMENTO DE TEMPO TOTAL (125s) e a função nunca começa uma
+//     tentativa nova se não houver folga — sempre responde com mensagem
+//     amigável ANTES de ser cortada;
+//   - cada tentativa tem timeout próprio (AbortController);
+//   - se um modelo está sobrecarregado (503) ou sem cota (429), tenta
+//     IMEDIATAMENTE o próximo modelo da lista MODELOS (inclui a Mistral como reserva) antes de
+//     esperar;
+//   - cada tentativa é registrada com console.log (aparece em Edge
+//     Functions → processar-diario-pdf → Logs).
+//
 // Requer um segredo configurado no projeto Supabase:
 //   GEMINI_API_KEY  (gere em https://aistudio.google.com/apikey)
 //
-// Deploy:
-//   supabase functions deploy processar-diario-pdf
-//   supabase secrets set GEMINI_API_KEY=xxxxx
+// Deploy: colar o arquivo inteiro na tela do Supabase (Edge Functions →
+// processar-diario-pdf → colar → Deploy). Função autocontida, sem imports
+// de arquivos compartilhados.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // CORS: só libera o domínio de produção + localhost (porta do Vite) em vez
@@ -33,6 +49,170 @@ function corsHeadersFor(req: Request): Record<string, string> {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Vary": "Origin",
   };
+}
+
+// Modelos tentados, em ordem. O primeiro é o preferido (mais estável). Se
+// ele estiver sobrecarregado/sem cota, o próximo é tentado na hora. Para
+// adicionar outro modelo, basta incluir o nome aqui. Um modelo que não
+// existir (HTTP 404) é simplesmente pulado.
+// A Mistral entra como RESERVA (só é usada se o segredo MISTRAL_API_KEY
+// existir no Supabase) — se a Gemini estiver sobrecarregada, tenta ela.
+const MODELOS: { prov: "gemini" | "mistral"; nome: string }[] = [
+  { prov: "gemini", nome: "gemini-3.5-flash" },
+  { prov: "gemini", nome: "gemini-3.8-flash" },
+  { prov: "mistral", nome: "mistral-small-latest" },
+];
+
+// Orçamento de tempo. O limite do Supabase (plano Free) é ~150s por
+// execução; deixamos folga para a autenticação/consultas iniciais e para
+// montar a resposta final.
+const ORCAMENTO_MS = 125_000; // tempo total máximo gasto falando com a Gemini
+const MARGEM_MIN_MS = 15_000; // não começa tentativa nova com menos que isso
+const TIMEOUT_TENTATIVA_MS = 80_000; // teto de uma única chamada à Gemini
+
+const STATUS_RETENTAVEIS = new Set([429, 500, 503, 504]);
+
+async function dormir(ms: number) {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+type RespostaGemini = {
+  ok: boolean;
+  status: number;
+  json: any;
+  abortado: boolean;
+};
+
+async function chamarGemini(
+  modelo: string,
+  geminiKey: string,
+  prompt: string,
+  pdfBase64: string,
+  timeoutMs: number
+): Promise<RespostaGemini> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": geminiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
+          },
+        }),
+      }
+    );
+    // O corpo é lido ainda dentro do timeout (o abort também cobre a leitura).
+    const json = await resp.json().catch(() => null);
+    return { ok: resp.ok, status: resp.status, json, abortado: false };
+  } catch (e) {
+    const abortado = (e as Error)?.name === "AbortError";
+    return {
+      ok: false,
+      status: abortado ? 0 : -1,
+      json: { error: { message: String(e) } },
+      abortado,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Mistral (reserva). Devolve a resposta já NORMALIZADA no formato da Gemini
+// ({candidates:[{content:{parts:[{text}]}, finishReason}]}) para o resto da
+// função não precisar saber qual provedor respondeu.
+async function chamarMistral(
+  modelo: string,
+  mistralKey: string,
+  prompt: string,
+  pdfBase64: string,
+  timeoutMs: number
+): Promise<RespostaGemini> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${mistralKey}`,
+      },
+      body: JSON.stringify({
+        model: modelo,
+        temperature: 0,
+        max_tokens: 8192,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "document_url", document_url: `data:application/pdf;base64,${pdfBase64}` },
+            ],
+          },
+        ],
+      }),
+    });
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok) return { ok: false, status: resp.status, json, abortado: false };
+
+    const choice = json?.choices?.[0];
+    const conteudo = choice?.message?.content;
+    const texto =
+      typeof conteudo === "string"
+        ? conteudo
+        : (conteudo ?? []).map((c: any) => c?.text ?? "").join("");
+    return {
+      ok: true,
+      status: resp.status,
+      json: {
+        candidates: [
+          {
+            content: { parts: [{ text: texto }] },
+            finishReason: choice?.finish_reason === "length" ? "MAX_TOKENS" : "STOP",
+          },
+        ],
+      },
+      abortado: false,
+    };
+  } catch (e) {
+    const abortado = (e as Error)?.name === "AbortError";
+    return {
+      ok: false,
+      status: abortado ? 0 : -1,
+      json: { error: { message: String(e) } },
+      abortado,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function extrairRetryDelayMs(corpo: any): number {
+  const retryInfo = (corpo?.error?.details ?? []).find((d: any) =>
+    String(d["@type"] ?? "").includes("RetryInfo")
+  );
+  const segundos = retryInfo?.retryDelay ? parseFloat(String(retryInfo.retryDelay).replace("s", "")) : NaN;
+  return isNaN(segundos) ? 0 : segundos * 1000;
 }
 
 Deno.serve(async (req) => {
@@ -54,6 +234,7 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    const mistralKey = Deno.env.get("MISTRAL_API_KEY");
 
     if (!geminiKey) {
       return new Response(
@@ -184,95 +365,119 @@ Regras importantes:
 - Se um aluno não tiver nenhuma nota lançada nessa matéria, não inclua ele na lista.
 - Não invente valores — se não conseguir ler algum número com certeza, use null nesse campo.`;
 
-    // Tentamos de novo automaticamente em dois cenários diferentes:
-    // - HTTP 429: cota da chave esgotada (esperamos o "retryDelay" que a
-    //   própria Gemini sugere, quando vem no corpo do erro).
-    // - HTTP 503: o MODELO está sobrecarregado no lado do Google ("This
-    //   model is currently experiencing high demand") — não tem relação
-    //   com a nossa cota, é só fila temporária do modelo.
-    // Em ambos os casos, até 5 tentativas com espera crescente (backoff de
-    // 10/20/30/40s) quando a API não informa quanto esperar. Mantém folga
-    // para não estourar o tempo máximo de execução da Edge Function.
-    // Usamos o "3.5" (legado) em vez do "3.8" (mais novo) porque modelos
-    // recém-lançados tendem a ficar sobrecarregados com mais frequência —
-    // o 3.5 já é mais do que suficiente para ler uma tabela de notas.
-    const MODELO_GEMINI = "gemini-3.5-flash";
-    const MAX_TENTATIVAS = 5;
-    let response: Response | null = null;
-    let corpoErro: any = null;
+    // ------------------------------------------------------------------
+    // Chamada à Gemini com ORÇAMENTO DE TEMPO + fallback de modelo.
+    //
+    // Cenários tratados:
+    // - 503: MODELO sobrecarregado no lado do Google (fila temporária).
+    // - 429: cota da chave esgotada (a Gemini pode sugerir "retryDelay").
+    // - timeout da tentativa (AbortController) e 500/504 transitórios.
+    // Em todos eles: tenta o próximo modelo da lista na hora; se a rodada
+    // inteira falhar, espera um pouco (8s, 16s, 24s... ou o retryDelay da
+    // API, se couber) e repete — mas NUNCA ultrapassa o ORCAMENTO_MS.
+    // Erros não retentáveis (400, 401, 403...) param na hora.
+    // ------------------------------------------------------------------
+    const modelosAtivos = MODELOS.filter((m) => m.prov !== "mistral" || !!mistralKey);
+    const inicioMs = Date.now();
+    const restanteMs = () => ORCAMENTO_MS - (Date.now() - inicioMs);
 
-    for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${MODELO_GEMINI}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": geminiKey,
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  { text: prompt },
-                  { inline_data: { mime_type: "application/pdf", data: pdf_base64 } },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0,
-              maxOutputTokens: 8192,
-              responseMimeType: "application/json",
-            },
-          }),
-        }
-      );
+    let resultado: any = null;
+    let modeloUsado = "";
+    let ultimoStatus = 0;
+    let ultimoCorpoErro: any = null;
+    let ultimaFoiTimeout = false;
+    let erroFatal = false;
+    let tentativasTotal = 0;
 
-      if (response.ok) break;
+    rodadas: for (let rodada = 1; ; rodada++) {
+      let houveFalhaRetentavel = false;
+      let maiorRetryDelayMs = 0;
 
-      const tentarDeNovo = response.status === 429 || response.status === 503;
+      for (const m of modelosAtivos) {
+        const modelo = m.nome;
+        if (restanteMs() < MARGEM_MIN_MS) break rodadas;
 
-      if (tentarDeNovo && tentativa < MAX_TENTATIVAS) {
-        corpoErro = await response.json().catch(() => null);
-        const retryInfo = (corpoErro?.error?.details ?? []).find((d: any) =>
-          String(d["@type"] ?? "").includes("RetryInfo")
+        const timeoutMs = Math.min(TIMEOUT_TENTATIVA_MS, restanteMs() - 2000);
+        tentativasTotal++;
+        const t0 = Date.now();
+        const r =
+          m.prov === "mistral"
+            ? await chamarMistral(modelo, mistralKey!, prompt, pdf_base64, timeoutMs)
+            : await chamarGemini(modelo, geminiKey, prompt, pdf_base64, timeoutMs);
+        console.log(
+          `[processar-diario-pdf] rodada=${rodada} modelo=${modelo} status=${r.status} ` +
+            `abortado=${r.abortado} duracao=${Math.round((Date.now() - t0) / 1000)}s ` +
+            `restante=${Math.round(restanteMs() / 1000)}s`
         );
-        const retryDelaySegundos = retryInfo?.retryDelay
-          ? parseFloat(String(retryInfo.retryDelay).replace("s", ""))
-          : NaN;
-        const esperaMs = !isNaN(retryDelaySegundos)
-          ? retryDelaySegundos * 1000
-          : tentativa * 10000; // 10s, 20s, 30s, 40s... se a API não disser quanto esperar
-        await new Promise((r) => setTimeout(r, esperaMs));
-        continue;
+
+        if (r.ok) {
+          resultado = r.json;
+          modeloUsado = modelo;
+          break rodadas;
+        }
+
+        ultimoStatus = r.status;
+        ultimoCorpoErro = r.json;
+        ultimaFoiTimeout = r.abortado;
+        console.error(
+          `[processar-diario-pdf] erro API (${modelo}): ${JSON.stringify(r.json)?.slice(0, 500)}`
+        );
+
+        if (r.status === 404) {
+          // Modelo inexistente/indisponível: pula para o próximo da lista.
+          continue;
+        }
+
+        if (r.abortado || STATUS_RETENTAVEIS.has(r.status)) {
+          houveFalhaRetentavel = true;
+          if (r.status === 429) {
+            maiorRetryDelayMs = Math.max(maiorRetryDelayMs, extrairRetryDelayMs(r.json));
+          }
+          continue; // tenta o próximo modelo imediatamente
+        }
+
+        // Erro que não adianta repetir (ex: chave inválida, requisição inválida).
+        erroFatal = true;
+        break rodadas;
       }
 
-      // Erro que não tentamos de novo, ou esgotou as tentativas: guarda o
-      // corpo e sai do loop para responder abaixo.
-      corpoErro = await response.json().catch(() => null);
-      break;
+      if (!houveFalhaRetentavel) break; // nada mais a tentar
+
+      const espera = Math.max(rodada * 8000, maiorRetryDelayMs);
+      if (espera > restanteMs() - MARGEM_MIN_MS) break; // não cabe esperar + tentar de novo
+      console.log(`[processar-diario-pdf] todos os modelos falharam; aguardando ${Math.round(espera / 1000)}s`);
+      await dormir(espera);
     }
 
-    if (!response || !response.ok) {
-      const mensagemAmigavel =
-        response?.status === 429
-          ? "A API da Gemini está recusando novas requisições por excesso de uso (cota da chave gratuita). " +
-            "Tentei novamente algumas vezes automaticamente, mas o limite continua ativo — ative o faturamento " +
-            "pré-pago (com teto de gasto) na conta Google usada para gerar a chave, em aistudio.google.com, " +
-            "para que isso pare de acontecer."
-          : response?.status === 503
-          ? "O modelo da Gemini está com alta demanda no momento (instabilidade do lado do Google, não da sua " +
-            "conta). Tentei novamente algumas vezes automaticamente, mas continuou sobrecarregado — aguarde " +
-            "alguns minutos e tente importar este diário de novo."
-          : `Erro na API da Gemini: ${corpoErro?.error?.message ?? JSON.stringify(corpoErro)}`;
+    if (!resultado) {
+      const segundosGastos = Math.round((Date.now() - inicioMs) / 1000);
+      console.error(
+        `[processar-diario-pdf] desistindo após ${tentativasTotal} tentativa(s) em ${segundosGastos}s. ` +
+          `Último status=${ultimoStatus}`
+      );
+
+      const mensagemAmigavel = erroFatal
+        ? `Erro na API da Gemini (HTTP ${ultimoStatus}): ${ultimoCorpoErro?.error?.message ?? JSON.stringify(ultimoCorpoErro)}`
+        : ultimoStatus === 429
+        ? "A API da Gemini está recusando novas requisições por excesso de uso (cota da chave gratuita). " +
+          `Tentei ${tentativasTotal} vez(es) com ${modelosAtivos.length} modelo(s) em ${segundosGastos}s, ` +
+          "mas o limite continua ativo — aguarde alguns minutos ou ative o faturamento pré-pago (com teto de " +
+          "gasto) na conta Google usada para gerar a chave, em aistudio.google.com."
+        : ultimaFoiTimeout
+        ? "A Gemini demorou demais para responder (instabilidade do lado do Google, não da sua conta). " +
+          `Tentei ${tentativasTotal} vez(es) em ${segundosGastos}s — aguarde alguns minutos e tente importar ` +
+          "este diário de novo."
+        : "Os modelos da Gemini estão com alta demanda no momento (instabilidade do lado do Google, não da sua " +
+          `conta). Tentei ${tentativasTotal} vez(es) com ${modelosAtivos.length} modelo(s) em ${segundosGastos}s, ` +
+          "mas todos continuaram sobrecarregados — aguarde alguns minutos e tente importar este diário de novo.";
+
       return new Response(JSON.stringify({ error: mensagemAmigavel }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const resultado = await response.json();
+    console.log(`[processar-diario-pdf] sucesso com ${modeloUsado} após ${tentativasTotal} tentativa(s)`);
 
     // Prompt bloqueado por filtro de segurança (sem nenhum candidato) —
     // raro para um diário de classe, mas possível.
@@ -325,12 +530,27 @@ Regras importantes:
     }
 
     // Casa cada nome extraído com o cadastro real (para já devolver o aluno_id)
+    // Casamento tolerante: primeiro tenta o nome EXATO; se não achar, tenta
+    // ignorando acentos, maiúsculas e espaços extras (ex: "RAI KEVIN MACEDO"
+    // casa com "RAÍ KEVIN MACEDO"). Se dois alunos tiverem nomes iguais sem
+    // acento (ambíguo), não casa sozinho — o admin escolhe na prévia.
+    const normalizar = (s: string) =>
+      String(s ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
     const mapaNomeParaId = new Map((alunosDaTurma ?? []).map((a) => [a.nome_completo, a.id]));
-    const alunosComStatus = (extraido.alunos ?? []).map((a: any) => ({
-      ...a,
-      aluno_id: mapaNomeParaId.get(a.nome) ?? null,
-      encontrado: mapaNomeParaId.has(a.nome),
-    }));
+    const mapaNormalizado = new Map<string, string | null>(); // null = ambíguo
+    for (const a of alunosDaTurma ?? []) {
+      const k = normalizar(a.nome_completo);
+      mapaNormalizado.set(k, mapaNormalizado.has(k) ? null : a.id);
+    }
+    const alunosComStatus = (extraido.alunos ?? []).map((a: any) => {
+      const id = mapaNomeParaId.get(a.nome) ?? mapaNormalizado.get(normalizar(a.nome)) ?? null;
+      return { ...a, aluno_id: id, encontrado: id !== null };
+    });
 
     return new Response(
       JSON.stringify({
@@ -346,6 +566,7 @@ Regras importantes:
       }
     );
   } catch (err) {
+    console.error(`[processar-diario-pdf] exceção: ${String(err)}`);
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

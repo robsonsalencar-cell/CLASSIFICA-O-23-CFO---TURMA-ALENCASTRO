@@ -1,3 +1,4 @@
+import { CreditosContato } from "@/components/layout/CreditosContato";
 import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICard } from "@/components/dashboard/KPICard";
@@ -107,9 +108,7 @@ const Cfo3 = () => {
               Atualizar
             </button>
           </div>
-          <div className="mt-3 text-right">
-            <span className="text-xs text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
-          </div>
+          <CreditosContato align="right" className="mt-3" />
         </div>
       </div>
     </header>
@@ -282,9 +281,7 @@ const Cfo3 = () => {
           </Card>
         </section>
 
-        <div className="text-center py-6">
-          <span className="text-sm text-muted-foreground">Criado por CAD PM ALENCAR - 2025</span>
-        </div>
+        <CreditosContato className="py-6" />
       </main>
 
       <StudentDetailsModal
