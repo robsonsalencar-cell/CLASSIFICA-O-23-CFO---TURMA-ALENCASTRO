@@ -1,3 +1,4 @@
+import { docxBlobParaPdfBlob } from "@/utils/docxParaPdf";
 import {
   Document,
   Packer,
@@ -112,8 +113,8 @@ export interface DadosExportacaoDiploma {
   dataEmissao: string; // já formatada por extenso
 }
 
-function nomeArquivo(dados: DadosExportacaoDiploma) {
-  return `diploma_${dados.nomeAluno}`.replace(/\s+/g, "_") + ".docx";
+function nomeArquivo(dados: DadosExportacaoDiploma, extensao: "docx" | "pdf" = "docx") {
+  return `diploma_${dados.nomeAluno}`.replace(/\s+/g, "_") + `.${extensao}`;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -138,7 +139,7 @@ function vermelho(valor: string | null, opts: { size: number; font?: string }): 
 
 const SEM_BORDA = TableBorders.NONE;
 
-export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
+export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato: "docx" | "pdf" = "docx") {
   const [brasaoMt, brasaoPmmt, brasaoApmcv, seloRepublica] = await Promise.all([
     carregarImagemBrasao(BRASAO_MT_URL),
     carregarImagemBrasao(BRASAO_PMMT_URL),
@@ -476,5 +477,9 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma) {
   });
 
   const blob = await Packer.toBlob(doc);
-  downloadBlob(blob, nomeArquivo(dados));
+  if (formato === "pdf") {
+    downloadBlob(await docxBlobParaPdfBlob(blob), nomeArquivo(dados, "pdf"));
+  } else {
+    downloadBlob(blob, nomeArquivo(dados));
+  }
 }

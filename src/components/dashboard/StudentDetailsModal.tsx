@@ -66,7 +66,7 @@ export function StudentDetailsModal({
   const [boletimTermino, setBoletimTermino] = useState("");
   const [gerandoBoletim, setGerandoBoletim] = useState(false);
   const [historicoDialogAberto, setHistoricoDialogAberto] = useState(false);
-  const [historicoFormato, setHistoricoFormato] = useState<"word" | null>(null);
+  const [historicoFormato, setHistoricoFormato] = useState<"word" | "pdf" | null>(null);
   const [historicoAlunoId, setHistoricoAlunoId] = useState<string | null>(null);
   const [historicoRefetchToken, setHistoricoRefetchToken] = useState(0);
   const [gerandoHistorico, setGerandoHistorico] = useState(false);
@@ -149,7 +149,7 @@ export function StudentDetailsModal({
     setBoletimFormato(null);
   }
 
-  function abrirDialogoHistorico(formato: "word") {
+  function abrirDialogoHistorico(formato: "word" | "pdf") {
     if (!student) return;
     setHistoricoFormato(formato);
     setHistoricoAlunoId((student as AlunoModulo).aluno_id);
@@ -231,13 +231,13 @@ export function StudentDetailsModal({
       dataEmissao: dataPorExtenso(new Date()),
     };
 
-    await exportarHistoricoWord(dados);
+    await exportarHistoricoWord(dados, historicoFormato === "pdf" ? "pdf" : "docx");
     setGerandoHistorico(false);
     setHistoricoDialogAberto(false);
     setHistoricoFormato(null);
   }
 
-  async function gerarDiploma() {
+  async function gerarDiploma(formato: "docx" | "pdf" = "docx") {
     if (!student) return;
     const alunoId = (student as AlunoModulo).aluno_id;
     setGerandoDiploma(true);
@@ -290,7 +290,7 @@ export function StudentDetailsModal({
         responsavelPosto: config.responsavel_assinatura_posto,
         dataEmissao: dataPorExtenso(new Date()),
       };
-      await exportarDiplomaWord(dados);
+      await exportarDiplomaWord(dados, formato);
     } finally {
       setGerandoDiploma(false);
     }
@@ -334,18 +334,33 @@ export function StudentDetailsModal({
                     <DropdownMenuItem onClick={() => abrirDialogoHistorico("word")}>
                       <FileText className="w-4 h-4 mr-2 text-blue-500" /> Word (.docx)
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => abrirDialogoHistorico("pdf")}>
+                      <FileText className="w-4 h-4 mr-2 text-red-500" /> PDF
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
               {isAdmin && daGeral && (
-                <Button variant="outline" size="sm" onClick={gerarDiploma} disabled={gerandoDiploma}>
-                  {gerandoDiploma ? (
-                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  ) : (
-                    <FileText className="w-4 h-4 mr-1" />
-                  )}
-                  Gerar Diploma
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild disabled={gerandoDiploma}>
+                    <Button variant="outline" size="sm" disabled={gerandoDiploma}>
+                      {gerandoDiploma ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <FileText className="w-4 h-4 mr-1" />
+                      )}
+                      Gerar Diploma
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => gerarDiploma("docx")}>
+                      <FileText className="w-4 h-4 mr-2 text-blue-500" /> Word (.docx)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => gerarDiploma("pdf")}>
+                      <FileText className="w-4 h-4 mr-2 text-red-500" /> PDF
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               {podeExportarRelatorioIndividual && (
                 <DropdownMenu>
@@ -527,7 +542,7 @@ export function StudentDetailsModal({
                 </p>
                 <Button onClick={gerarHistorico} disabled={gerandoHistorico} className="w-full">
                   {gerandoHistorico && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Gerar Word
+                  Gerar {historicoFormato === "pdf" ? "PDF" : "Word"}
                 </Button>
               </>
             )}

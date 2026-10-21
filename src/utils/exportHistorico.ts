@@ -1,3 +1,4 @@
+import { docxBlobParaPdfBlob } from "@/utils/docxParaPdf";
 import * as XLSX from "xlsx";
 import {
   Document,
@@ -226,7 +227,7 @@ function tabelaAno(
   ];
 }
 
-export async function exportarHistoricoWord(dados: DadosExportacaoHistorico) {
+export async function exportarHistoricoWord(dados: DadosExportacaoHistorico, formato: "docx" | "pdf" = "docx") {
   const brasao = await carregarImagemBrasao(BRASAO_OFICIAL_APMCV_URL);
   const doc = new Document({
     sections: [
@@ -304,7 +305,11 @@ export async function exportarHistoricoWord(dados: DadosExportacaoHistorico) {
   });
 
   const blob = await Packer.toBlob(doc);
-  downloadBlob(blob, nomeArquivo(dados, "docx"));
+  if (formato === "pdf") {
+    downloadBlob(await docxBlobParaPdfBlob(blob), nomeArquivo(dados, "pdf"));
+  } else {
+    downloadBlob(blob, nomeArquivo(dados, "docx"));
+  }
 }
 
 // --- Excel ---
