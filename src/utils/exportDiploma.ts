@@ -1,3 +1,4 @@
+import { docxParaBlob } from "@/utils/docxCompatWord2007";
 import { docxBlobParaPdfBlob } from "@/utils/docxParaPdf";
 import {
   Document,
@@ -48,6 +49,7 @@ const BRASAO_APMCV_MARCA_DAGUA_URL = "/brasao-apmcv-marca-dagua.png";
 const SELO_REPUBLICA_URL = "/selo-republica-federativa.jpg";
 const COR_VERMELHA = "FF0000";
 const PLACEHOLDER = "______";
+const NOTA_TCC_PADRAO = "9,00 (nove)";
 
 const FONTE_TITULO = "Algerian";
 const FONTE_CORPO = "Old English Text MT";
@@ -286,7 +288,9 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
         new TextRun({ text: "Monografia apresentada ", font: FONTE_VERSO, size: 22, bold: true }),
         new TextRun({ text: dados.dataApresentacaoTcc ?? PLACEHOLDER, font: FONTE_VERSO, size: 22, bold: true, color: dados.dataApresentacaoTcc ? undefined : COR_VERMELHA }),
         new TextRun({ text: ", Nota ", font: FONTE_VERSO, size: 22, bold: true }),
-        new TextRun({ text: PLACEHOLDER, font: FONTE_VERSO, size: 22, bold: true, color: COR_VERMELHA }),
+        // Nota do TCC: 9,00 (nove) para todos os formandos (informado pela
+        // administração em 22/10/2026) — sai preenchida, em preto.
+        new TextRun({ text: NOTA_TCC_PADRAO, font: FONTE_VERSO, size: 22, bold: true }),
         new TextRun({ text: ".", font: FONTE_VERSO, size: 22, bold: true }),
       ],
     }),
@@ -476,7 +480,7 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
     ],
   });
 
-  const blob = await Packer.toBlob(doc);
+  const blob = await docxParaBlob(doc);
   if (formato === "pdf") {
     downloadBlob(await docxBlobParaPdfBlob(blob), nomeArquivo(dados, "pdf"));
   } else {

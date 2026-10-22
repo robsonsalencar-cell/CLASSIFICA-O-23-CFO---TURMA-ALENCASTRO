@@ -1,3 +1,4 @@
+import { docxParaBlob } from "@/utils/docxCompatWord2007";
 import {
   Document,
   Packer,
@@ -209,6 +210,6 @@ export async function exportarAtaWord(dados: DadosExportacaoAta) {
     ],
   });
 
-  const blob = await Packer.toBlob(doc);
+  const blob = await docxParaBlob(doc);
   downloadBlob(blob, nomeArquivo(dados));
 }

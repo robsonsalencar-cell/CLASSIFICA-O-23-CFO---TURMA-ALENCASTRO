@@ -1,3 +1,4 @@
+import { docxParaBlob } from "@/utils/docxCompatWord2007";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -352,6 +353,6 @@ export async function exportarBoletimWord(dados: DadosExportacaoBoletim) {
     ],
   });
 
-  const blob = await Packer.toBlob(doc);
+  const blob = await docxParaBlob(doc);
   downloadBlob(blob, nomeArquivo(dados, "docx"));
 }

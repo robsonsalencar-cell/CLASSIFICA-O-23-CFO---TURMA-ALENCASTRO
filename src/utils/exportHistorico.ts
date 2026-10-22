@@ -1,3 +1,4 @@
+import { docxParaBlob } from "@/utils/docxCompatWord2007";
 import { docxBlobParaPdfBlob } from "@/utils/docxParaPdf";
 import * as XLSX from "xlsx";
 import {
@@ -304,7 +305,7 @@ export async function exportarHistoricoWord(dados: DadosExportacaoHistorico, for
     ],
   });
 
-  const blob = await Packer.toBlob(doc);
+  const blob = await docxParaBlob(doc);
   if (formato === "pdf") {
     downloadBlob(await docxBlobParaPdfBlob(blob), nomeArquivo(dados, "pdf"));
   } else {
