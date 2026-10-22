@@ -97,6 +97,12 @@ async function sanear(blob: Blob): Promise<Blob> {
     xml = xml.replace(/\s(?:w14|w15|w16[a-z]*|wp14):[A-Za-z]+="[^"]*"/g, "");
 
     if (nome === "word/document.xml") {
+      // Largura em porcentagem: o Word 2007 só aceita número inteiro em
+      // w:w (cinquenta-avos de porcento: 100% = 5000); "100%" é do Word
+      // 2010+. Era exatamente isso que o Word 2007 da APMCV apontava
+      // ("Parte: /word/document.xml, Linha: 1, Coluna: ...") nas larguras
+      // de tabela/célula.
+      xml = xml.replace(/(<w:(?:tblW|tcW)\b[^>]*\sw:w=")(\d+(?:\.\d+)?)%"/g, (_m, pre: string, n: string) => `${pre}${Math.round(parseFloat(n) * 50)}"`);
       let proximoId = 1;
       xml = xml.replace(/<wp:docPr\b[^>]*?\/>/g, () => {
         const id = proximoId++;
