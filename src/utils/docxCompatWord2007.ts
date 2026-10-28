@@ -83,7 +83,15 @@ async function sanear(blob: Blob): Promise<Blob> {
 
   const settings = zip.file("word/settings.xml");
   if (settings) {
-    const xml = (await settings.async("string")).replace(/<w:compat>[\s\S]*?<\/w:compat>/g, "").replace(/<w:compat\/>/g, "");
+    // Mantém o modo de compatibilidade 15 (Word 2013+). Sem ele o Word novo abre
+    // o arquivo em "Modo de Compatibilidade" (layout do Word 2007), que ocupa
+    // mais espaço e jogava o diploma para uma 3ª página. O LibreOffice também
+    // grava este mesmo <w:compatSetting> e o arquivo dele abre no Word 2007
+    // (que simplesmente ignora o valor), então é seguro.
+    const COMPAT =
+      '<w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat>';
+    let xml = (await settings.async("string")).replace(/<w:compat>[\s\S]*?<\/w:compat>/g, "").replace(/<w:compat\/>/g, "");
+    xml = xml.replace(/<\/w:settings>\s*$/, COMPAT + "</w:settings>");
     zip.file("word/settings.xml", xml);
   }
 
