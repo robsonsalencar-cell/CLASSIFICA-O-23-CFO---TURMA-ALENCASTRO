@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth, useEffectiveAlunoId } from "@/contexts/AuthContext";
 import { useTurma } from "@/contexts/TurmaContext";
@@ -33,14 +33,21 @@ export interface NotaRow {
 export function useNotasModulo(tabela: TabelaModulo) {
   const { isAdmin } = useAuth();
   const effectiveAlunoId = useEffectiveAlunoId();
-  const { turmaAtualId, turmaAtual } = useTurma();
+  const { turmaAtualId, turmaAtual, loading: turmaCarregando } = useTurma();
   const [rows, setRows] = useState<NotaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const rankingPublicoLiberado = Boolean(turmaAtual?.ranking_publico);
 
+  // Numera cada busca: se a turma (ou o aluno simulado) mudar enquanto uma busca
+  // anterior ainda está em andamento, a resposta atrasada é descartada em vez de
+  // sobrescrever a tela com dados de outra turma.
+  const buscaAtual = useRef(0);
+
   const fetchData = useCallback(async () => {
+    const minhaBusca = ++buscaAtual.current;
+    const obsoleta = () => minhaBusca !== buscaAtual.current;
     setLoading(true);
     setError(null);
 
@@ -57,6 +64,18 @@ export function useNotasModulo(tabela: TabelaModulo) {
     // colega via essa exceção) — nome/matrícula do colega, nesse caso,
     // vêm de uma função dedicada que só devolve esses 2 campos.
     const usarEmbedDeProfiles = isAdmin;
+
+    // SEGURANÇA/ISOLAMENTO ENTRE TURMAS: enquanto a turma em foco ainda não foi
+    // definida (carregamento inicial), NÃO se busca nada. Antes essa busca saía
+    // sem filtro nenhum e trazia os alunos de TODAS as turmas — se ela chegasse
+    // depois da busca certa, o ranking de uma turma misturava os alunos da outra.
+    if (verTurmaInteira && !turmaAtualId) {
+      setRows([]);
+      // Ainda carregando as turmas → continua "carregando" (a busca certa vem logo
+      // depois). Se já carregou e não há turma nenhuma, não há o que mostrar.
+      setLoading(turmaCarregando);
+      return;
+    }
 
     let query = supabase
       .from(tabela)
@@ -80,6 +99,7 @@ export function useNotasModulo(tabela: TabelaModulo) {
         .eq("turma_id", turmaAtualId)
         .eq(colunaMatricula, true);
 
+      if (obsoleta()) return;
       if (erroAlunos) {
         setError(erroAlunos.message);
         setRows([]);
@@ -97,6 +117,7 @@ export function useNotasModulo(tabela: TabelaModulo) {
     }
 
     const { data, error } = await query.order("materia", { ascending: true });
+    if (obsoleta()) return;
 
     if (error) {
       setError(error.message);
@@ -112,6 +133,7 @@ export function useNotasModulo(tabela: TabelaModulo) {
       const { data: nomes, error: erroNomes } = await supabase.rpc("nomes_turma_ranking_publico", {
         p_turma_id: turmaAtualId,
       });
+      if (obsoleta()) return;
       if (erroNomes) {
         setError(erroNomes.message);
         setRows([]);
@@ -136,7 +158,7 @@ export function useNotasModulo(tabela: TabelaModulo) {
       setRows(mapped);
     }
     setLoading(false);
-  }, [tabela, isAdmin, effectiveAlunoId, turmaAtualId, rankingPublicoLiberado]);
+  }, [tabela, isAdmin, effectiveAlunoId, turmaAtualId, rankingPublicoLiberado, turmaCarregando]);
 
   useEffect(() => {
     fetchData();

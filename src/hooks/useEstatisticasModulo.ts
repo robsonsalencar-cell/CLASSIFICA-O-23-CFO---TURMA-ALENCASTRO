@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { TabelaModulo } from "@/hooks/useNotasModulo";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,9 +41,20 @@ export function useEstatisticasModulo(tabela: TabelaModulo | "geral") {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Descarta respostas atrasadas (troca de turma/aluno simulado no meio da busca).
+  const buscaAtual = useRef(0);
+
   const fetchDados = useCallback(async () => {
+    const minhaBusca = ++buscaAtual.current;
     setLoading(true);
     setError(null);
+
+    // ISOLAMENTO ENTRE TURMAS: com p_turma_id nulo as funções do banco somam as
+    // turmas todas. Enquanto a turma em foco não está definida, não busca nada.
+    if (!turmaAtualId) {
+      setDados(null);
+      return;
+    }
 
     // materias_lancadas só deve contar matérias que batem com a lista
     // curricular oficial (evita que grafia divergente no banco infle o
@@ -64,6 +75,7 @@ export function useEstatisticasModulo(tabela: TabelaModulo | "geral") {
             p_materias_oficiais: MATERIAS_POR_TABELA[tabela],
           });
 
+    if (minhaBusca !== buscaAtual.current) return;
     if (error) {
       setError(error.message);
       setDados(null);
