@@ -207,6 +207,10 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
   //   linha 1: 9 espaços(10pt) + 16 "_"(18pt) + 58 espaços + 35 "_" + 6 espaços
   //   linha 2: 14 espaços + "Bacharel" + 68 espaços + nome(vermelho,17,5pt) + "-" + posto(vermelho,17,5pt)
   //   linha 3: 123 espaços(16pt) + "Comandante da APMCV"(16pt)
+  // Linha em branco da frente, mais baixa que a padrão: a frente do diploma já
+  // enche a página, e sem essa folga qualquer diferença de fonte/versão do Word
+  // joga a última linha pra uma página nova.
+  const vazioFrente = () => new Paragraph({ children: [], run: { size: 14 } });
   const esp = (n: number, tamanho: number) => txt(" ".repeat(n), { size: tamanho });
   const linhaAssinaturasFrente = [
     new Paragraph({
@@ -221,7 +225,10 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
         vermelho(dados.comandantePosto, { size: 35 }),
       ],
     }),
-    new Paragraph({ children: [esp(123, 32), txt("Comandante da APMCV", { size: 32 })] }),
+    // A quebra de página vai DENTRO deste último parágrafo (e não num parágrafo
+    // próprio): a frente já ocupa a página inteira, e um parágrafo a mais só
+    // pra quebrar a página empurrava o diploma pra uma 3ª folha em branco.
+    new Paragraph({ children: [esp(123, 32), txt("Comandante da APMCV", { size: 32 }), new PageBreak()] }),
   ];
 
   // --- Verso (página 2) — 5 CAIXAS INDEPENDENTES, não uma tabela 2x2.
@@ -404,12 +411,12 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
         },
         children: [
           ...cabecalhoLinhas,
-          new Paragraph({ text: "" }),
+          vazioFrente(),
           new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [txt("DIPLOMA", { size: 60, font: FONTE_CORPO })],
           }),
-          new Paragraph({ text: "" }),
+          vazioFrente(),
           new Paragraph({
             alignment: AlignmentType.JUSTIFIED,
             children: [
@@ -418,12 +425,12 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
               txt(", confere o Título de Bacharel em Segurança Pública a", { size: 36 }),
             ],
           }),
-          new Paragraph({ text: "" }),
+          vazioFrente(),
           new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [vermelho(dados.nomeAluno, { size: 50, font: FONTE_TITULO }), txt(",", { size: 50, font: FONTE_TITULO })],
           }),
-          new Paragraph({ text: "" }),
+          vazioFrente(),
           new Paragraph({
             alignment: AlignmentType.JUSTIFIED,
             children: [
@@ -442,7 +449,7 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
               txt(", e outorga-lhe o Presente Diploma, a fim de que possa gozar de todos os direitos e prerrogativas legais.", { size: 36 }),
             ],
           }),
-          new Paragraph({ text: "" }),
+          vazioFrente(),
           new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [
@@ -470,10 +477,8 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
               txt(".", { size: 36 }),
             ],
           }),
-          new Paragraph({ text: "" }),
-          new Paragraph({ text: "" }),
+          vazioFrente(),
           ...linhaAssinaturasFrente,
-          new Paragraph({ children: [new PageBreak()] }),
           grade,
         ],
       },
