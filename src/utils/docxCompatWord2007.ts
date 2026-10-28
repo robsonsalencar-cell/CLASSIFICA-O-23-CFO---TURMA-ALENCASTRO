@@ -142,6 +142,17 @@ async function sanear(blob: Blob): Promise<Blob> {
       }
       // <w:rPrDefault/> / <w:pPrDefault/> vazios (a biblioteca grava assim).
       xml = xml.replace(/<w:rPrDefault\/>/g, "").replace(/<w:pPrDefault\/>/g, "");
+      // Padrões do documento SEMPRE explícitos. Sem eles (docDefaults vazio) o
+      // Word novo aplica os padrões do próprio modelo dele (Calibri 11, 10pt
+      // depois do parágrafo, entrelinha 1,15), o que deixava os documentos
+      // mais altos que o previsto (ex.: o diploma ia pra uma 3ª página). Aqui
+      // fixamos o que a biblioteca pretendia: 10pt, sem espaçamento, entrelinha simples.
+      const PADROES =
+        '<w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:rPrDefault>' +
+        '<w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>';
+      xml = /<w:docDefaults>[\s\S]*?<\/w:docDefaults>|<w:docDefaults\/>/.test(xml)
+        ? xml.replace(/<w:docDefaults>[\s\S]*?<\/w:docDefaults>|<w:docDefaults\/>/, PADROES)
+        : xml.replace(/(<w:styles\b[^>]*>)/, "$1" + PADROES);
     }
 
     xml = limparNamespaces(xml);

@@ -15,7 +15,8 @@ import {
   PageBorderDisplay,
   PageBorderOffsetFrom,
   TableBorders,
-  PageBreak,
+  LineRuleType,
+  HeightRule,
   HorizontalPositionRelativeFrom,
   VerticalPositionRelativeFrom,
   TextWrappingType,
@@ -180,8 +181,19 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
         })
       : null;
 
+  // Espaçamento da frente, no padrão aprovado (diploma ajustado à mão no Word):
+  // sem linhas em branco entre os blocos — o respiro vem do espaçamento do
+  // próprio parágrafo (10pt depois, entrelinha 1,15), igual ao padrão do Word.
+  // O cabeçalho (brasões e nome da instituição) fica compacto.
+  const PADRAO_CABECALHO = { after: 0, line: 240, lineRule: LineRuleType.AUTO };
+  // Linhas de assinatura: sem o "10pt depois" — é o que garante folga pra a frente
+  // não vazar para outra página quando nome/filiação são compridos.
+  const PADRAO_ASSINATURA = { after: 0, line: 276, lineRule: LineRuleType.AUTO };
+  const PADRAO_CORPO = { after: 200, line: 276, lineRule: LineRuleType.AUTO };
+
   const cabecalhoLinhas = [
     new Paragraph({
+      spacing: PADRAO_CABECALHO,
       alignment: AlignmentType.CENTER,
       children: [
         ...(brasaoMt ? [imagemFundo(brasaoMt, { offsetH: 40640, offsetV: 59055, width: 116, height: 113 })!] : []),
@@ -190,10 +202,10 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
         txt("ESTADO DE MATO GROSSO", { size: 34, font: FONTE_TITULO }),
       ],
     }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA", { size: 34, font: FONTE_TITULO })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("POLÍCIA MILITAR", { size: 34, font: FONTE_TITULO })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("DIRETORIA DE ENSINO, INSTRUÇÃO E PESQUISA", { size: 34, font: FONTE_TITULO })] }),
-    new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("ACADEMIA DE POLÍCIA MILITAR COSTA VERDE", { size: 34, font: FONTE_TITULO })] }),
+    new Paragraph({ spacing: PADRAO_CABECALHO, alignment: AlignmentType.CENTER, children: [txt("SECRETARIA DE ESTADO DE SEGURANÇA PÚBLICA", { size: 34, font: FONTE_TITULO })] }),
+    new Paragraph({ spacing: PADRAO_CABECALHO, alignment: AlignmentType.CENTER, children: [txt("POLÍCIA MILITAR", { size: 34, font: FONTE_TITULO })] }),
+    new Paragraph({ spacing: PADRAO_CABECALHO, alignment: AlignmentType.CENTER, children: [txt("DIRETORIA DE ENSINO, INSTRUÇÃO E PESQUISA", { size: 34, font: FONTE_TITULO })] }),
+    new Paragraph({ spacing: PADRAO_CABECALHO, alignment: AlignmentType.CENTER, children: [txt("ACADEMIA DE POLÍCIA MILITAR COSTA VERDE", { size: 34, font: FONTE_TITULO })] }),
   ];
 
   // Assinaturas da frente: réplica exata do modelo original — descobri
@@ -207,16 +219,14 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
   //   linha 1: 9 espaços(10pt) + 16 "_"(18pt) + 58 espaços + 35 "_" + 6 espaços
   //   linha 2: 14 espaços + "Bacharel" + 68 espaços + nome(vermelho,17,5pt) + "-" + posto(vermelho,17,5pt)
   //   linha 3: 123 espaços(16pt) + "Comandante da APMCV"(16pt)
-  // Linha em branco da frente, mais baixa que a padrão: a frente do diploma já
-  // enche a página, e sem essa folga qualquer diferença de fonte/versão do Word
-  // joga a última linha pra uma página nova.
-  const vazioFrente = () => new Paragraph({ children: [], run: { size: 14 } });
   const esp = (n: number, tamanho: number) => txt(" ".repeat(n), { size: tamanho });
   const linhaAssinaturasFrente = [
     new Paragraph({
+      spacing: PADRAO_ASSINATURA,
       children: [esp(9, 20), txt("_".repeat(16), { size: 36 }), esp(58, 36), txt("_".repeat(35), { size: 36 }), esp(6, 36)],
     }),
     new Paragraph({
+      spacing: PADRAO_ASSINATURA,
       children: [
         esp(14, 36),
         txt(`Bacharel${" ".repeat(68)}`, { size: 36 }),
@@ -225,10 +235,11 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
         vermelho(dados.comandantePosto, { size: 35 }),
       ],
     }),
-    // A quebra de página vai DENTRO deste último parágrafo (e não num parágrafo
-    // próprio): a frente já ocupa a página inteira, e um parágrafo a mais só
-    // pra quebrar a página empurrava o diploma pra uma 3ª folha em branco.
-    new Paragraph({ children: [esp(123, 32), txt("Comandante da APMCV", { size: 32 }), new PageBreak()] }),
+    // Sem quebra de página aqui: o verso começa na página seguinte porque a
+    // linha da tabela do verso tem altura mínima quase da página inteira (como
+    // no diploma ajustado à mão). Assim nunca sobra uma página em branco, mesmo
+    // se a frente estourar uma linha.
+    new Paragraph({ spacing: PADRAO_ASSINATURA, children: [esp(123, 32), txt("Comandante da APMCV", { size: 32 })] }),
   ];
 
   // --- Verso (página 2) — 5 CAIXAS INDEPENDENTES, não uma tabela 2x2.
@@ -361,6 +372,7 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
     borders: SEM_BORDA,
     rows: [
       new TableRow({
+        height: { value: 8498, rule: HeightRule.ATLEAST },
         children: [
           new TableCell({
             width: { size: 50, type: WidthType.PERCENTAGE },
@@ -411,28 +423,28 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
         },
         children: [
           ...cabecalhoLinhas,
-          vazioFrente(),
           new Paragraph({
+            spacing: PADRAO_CORPO,
             alignment: AlignmentType.CENTER,
             children: [txt("DIPLOMA", { size: 60, font: FONTE_CORPO })],
           }),
-          vazioFrente(),
           new Paragraph({
+            spacing: PADRAO_CORPO,
             alignment: AlignmentType.JUSTIFIED,
             children: [
-              txt("O Comandante da Academia de Policia Militar Costa Verde, no uso de suas atribuições e tendo em vista a conclusão do Curso de Formação de Oficiais da PMMT, Bacharelado em Segurança Pública em ", { size: 36 }),
+              txt("       O Comandante da Academia de Policia Militar Costa Verde, no uso de suas atribuições e tendo em vista a conclusão do Curso de Formação de Oficiais da PMMT, Bacharelado em Segurança Pública em ", { size: 36 }),
               vermelho(dados.dataConclusaoCurso, { size: 36 }),
               txt(", confere o Título de Bacharel em Segurança Pública a", { size: 36 }),
             ],
           }),
-          vazioFrente(),
           new Paragraph({
+            spacing: PADRAO_CORPO,
             alignment: AlignmentType.CENTER,
             children: [vermelho(dados.nomeAluno, { size: 50, font: FONTE_TITULO }), txt(",", { size: 50, font: FONTE_TITULO })],
           }),
-          vazioFrente(),
           new Paragraph({
-            alignment: AlignmentType.JUSTIFIED,
+            spacing: PADRAO_CORPO,
+            alignment: AlignmentType.CENTER,
             children: [
               txt("Filho(a) de ", { size: 36 }),
               vermelho(dados.filiacaoPai, { size: 36 }),
@@ -449,8 +461,8 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
               txt(", e outorga-lhe o Presente Diploma, a fim de que possa gozar de todos os direitos e prerrogativas legais.", { size: 36 }),
             ],
           }),
-          vazioFrente(),
           new Paragraph({
+            spacing: PADRAO_CORPO,
             alignment: AlignmentType.CENTER,
             children: [
               // Selo da República — no modelo original fica ATRÁS do texto
@@ -477,7 +489,6 @@ export async function exportarDiplomaWord(dados: DadosExportacaoDiploma, formato
               txt(".", { size: 36 }),
             ],
           }),
-          vazioFrente(),
           ...linhaAssinaturasFrente,
           grade,
         ],
